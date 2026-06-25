@@ -1,0 +1,14 @@
+# Vendored OpenMLS Rust workspace — build-time input only, not committed.
+# Regenerate the wasm from it with scripts/build-wasm.sh (to be added).
+# The BUILT artifact (pkg/) is committed separately inside the TS package.
+/openmls/
+
+# Node / TypeScript
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+*.log
+
+# OS
+.DS_Store
