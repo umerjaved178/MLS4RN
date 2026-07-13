@@ -1,7 +1,11 @@
-# Vendored OpenMLS Rust workspace — build-time input only, not committed.
-# Regenerate the wasm from it with scripts/build-wasm.sh (to be added).
-# The BUILT artifact (pkg/) is committed separately inside the TS package.
-/openmls/
+# Vendored OpenMLS Rust workspace — build-time input only.
+# Ignore the whole workspace EXCEPT the openmls-wasm crate, which we modify
+# (snapshot/restore bindings) and therefore keep in version control. The built
+# artifact is committed separately in wasm/.
+/openmls/*
+!/openmls/openmls-wasm/
+/openmls/openmls-wasm/target/
+/openmls/openmls-wasm/pkg/
 
 # Node / TypeScript
 node_modules/
