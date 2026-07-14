@@ -139,6 +139,23 @@ class Group {
         return Group.__wrap(ret[0]);
     }
     /**
+     * Reload a group's state from a restored provider's storage, for resuming a
+     * session after a restart. Errors if no such group is stored.
+     * @param {Provider} provider
+     * @param {string} group_id
+     * @returns {Group}
+     */
+    static load(provider, group_id) {
+        _assertClass(provider, Provider);
+        const ptr0 = passStringToWasm0(group_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.group_load(provider.__wbg_ptr, ptr0, len0);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return Group.__wrap(ret[0]);
+    }
+    /**
      * @param {Provider} provider
      */
     merge_pending_commit(provider) {
@@ -186,6 +203,12 @@ if (Symbol.dispose) Group.prototype[Symbol.dispose] = Group.prototype.free;
 exports.Group = Group;
 
 class Identity {
+    static __wrap(ptr) {
+        const obj = Object.create(Identity.prototype);
+        obj.__wbg_ptr = ptr;
+        IdentityFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
     __destroy_into_raw() {
         const ptr = this.__wbg_ptr;
         this.__wbg_ptr = 0;
@@ -195,6 +218,23 @@ class Identity {
     free() {
         const ptr = this.__destroy_into_raw();
         wasm.__wbg_identity_free(ptr, 0);
+    }
+    /**
+     * Restore an identity from `name` plus bytes from [`Identity::serialize`].
+     * @param {string} name
+     * @param {Uint8Array} bytes
+     * @returns {Identity}
+     */
+    static from_bytes(name, bytes) {
+        const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.identity_from_bytes(ptr0, len0, ptr1, len1);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return Identity.__wrap(ret[0]);
     }
     /**
      * @param {Provider} provider
@@ -220,6 +260,20 @@ class Identity {
         this.__wbg_ptr = ret[0];
         IdentityFinalization.register(this, this.__wbg_ptr, this);
         return this;
+    }
+    /**
+     * Serialize this identity's signature key pair so it can be persisted and
+     * restored. The public credential is rebuilt from `name` on restore.
+     * @returns {Uint8Array}
+     */
+    serialize() {
+        const ret = wasm.identity_serialize(this.__wbg_ptr);
+        if (ret[3]) {
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+        return v1;
     }
 }
 if (Symbol.dispose) Identity.prototype[Symbol.dispose] = Identity.prototype.free;
@@ -286,6 +340,12 @@ if (Symbol.dispose) NoWelcomeError.prototype[Symbol.dispose] = NoWelcomeError.pr
 exports.NoWelcomeError = NoWelcomeError;
 
 class Provider {
+    static __wrap(ptr) {
+        const obj = Object.create(Provider.prototype);
+        obj.__wbg_ptr = ptr;
+        ProviderFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
     __destroy_into_raw() {
         const ptr = this.__wbg_ptr;
         this.__wbg_ptr = 0;
@@ -296,11 +356,36 @@ class Provider {
         const ptr = this.__destroy_into_raw();
         wasm.__wbg_provider_free(ptr, 0);
     }
+    /**
+     * Restore a provider from bytes produced by [`Provider::serialize`].
+     * @param {Uint8Array} bytes
+     * @returns {Provider}
+     */
+    static from_bytes(bytes) {
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.provider_from_bytes(ptr0, len0);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return Provider.__wrap(ret[0]);
+    }
     constructor() {
         const ret = wasm.provider_new();
         this.__wbg_ptr = ret;
         ProviderFinalization.register(this, this.__wbg_ptr, this);
         return this;
+    }
+    /**
+     * Snapshot this provider's entire storage (key material, group state,
+     * secrets) to bytes, so it can be persisted and restored later.
+     * @returns {Uint8Array}
+     */
+    serialize() {
+        const ret = wasm.provider_serialize(this.__wbg_ptr);
+        var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+        return v1;
     }
 }
 if (Symbol.dispose) Provider.prototype[Symbol.dispose] = Provider.prototype.free;
