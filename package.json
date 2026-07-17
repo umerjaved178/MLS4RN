@@ -1,0 +1,22 @@
+{
+  "name": "mls4rn",
+  "version": "0.0.0",
+  "description": "TypeScript wrapper around OpenMLS (via openmls-wasm) for the JS ecosystem",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build:wasm": "bash scripts/build-wasm.sh",
+    "typecheck": "tsc --noEmit",
+    "demo": "tsx src/demo.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "openmls-wasm": "file:./wasm"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
