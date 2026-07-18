@@ -4,15 +4,45 @@
   "description": "TypeScript wrapper around OpenMLS (via openmls-wasm) for the JS ecosystem",
   "type": "module",
   "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mls",
+    "openmls",
+    "messaging-layer-security",
+    "end-to-end-encryption",
+    "e2ee",
+    "wasm",
+    "typescript"
+  ],
   "scripts": {
     "build:wasm": "bash scripts/build-wasm.sh",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "demo": "tsx src/demo.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "openmls-wasm": "file:./wasm"
   },
+  "bundleDependencies": [
+    "openmls-wasm"
+  ],
   "devDependencies": {
     "@types/node": "^22.10.0",
     "tsx": "^4.19.2",
