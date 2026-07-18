@@ -19,6 +19,11 @@ export class Group {
     export_key(provider: Provider, label: string, context: Uint8Array, key_length: number): Uint8Array;
     export_ratchet_tree(): RatchetTree;
     static join(provider: Provider, welcome: Uint8Array, ratchet_tree: RatchetTree): Group;
+    /**
+     * Reload a group's state from a restored provider's storage, for resuming a
+     * session after a restart. Errors if no such group is stored.
+     */
+    static load(provider: Provider, group_id: string): Group;
     merge_pending_commit(provider: Provider): void;
     process_message(provider: Provider, msg: Uint8Array): Uint8Array;
     propose_and_commit_add(provider: Provider, sender: Identity, new_member: KeyPackage): AddMessages;
@@ -27,8 +32,17 @@ export class Group {
 export class Identity {
     free(): void;
     [Symbol.dispose](): void;
+    /**
+     * Restore an identity from `name` plus bytes from [`Identity::serialize`].
+     */
+    static from_bytes(name: string, bytes: Uint8Array): Identity;
     key_package(provider: Provider): KeyPackage;
     constructor(provider: Provider, name: string);
+    /**
+     * Serialize this identity's signature key pair so it can be persisted and
+     * restored. The public credential is rebuilt from `name` on restore.
+     */
+    serialize(): Uint8Array;
 }
 
 export class KeyPackage {
@@ -54,7 +68,16 @@ export class NoWelcomeError {
 export class Provider {
     free(): void;
     [Symbol.dispose](): void;
+    /**
+     * Restore a provider from bytes produced by [`Provider::serialize`].
+     */
+    static from_bytes(bytes: Uint8Array): Provider;
     constructor();
+    /**
+     * Snapshot this provider's entire storage (key material, group state,
+     * secrets) to bytes, so it can be persisted and restored later.
+     */
+    serialize(): Uint8Array;
 }
 
 export class RatchetTree {
