@@ -161,3 +161,5 @@ Please do not report security issues in public GitHub issues. See [SECURITY.md](
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](./LICENSE).
+
+It builds on [OpenMLS](https://github.com/openmls/openmls) (also MIT), whose compiled WebAssembly is bundled with this package. Redistributed third-party licenses are reproduced in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
