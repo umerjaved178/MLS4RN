@@ -64,10 +64,13 @@ Transporting these between processes/devices is up to your application — every
 ### API summary
 
 **`MlsClient`**
-- `new MlsClient(name)` — create a participant with its own in-memory provider + identity.
+- `new MlsClient(name)` — create an in-memory participant with its own provider + identity.
+- `MlsClient.open(id, adapter): Promise<MlsClient>` — open a **persistent** client, restoring a prior snapshot or starting fresh.
+- `save(): Promise<void>` — persist the current state (persistent clients only).
 - `keyPackage(): Uint8Array` — a serialized key package to publish so others can add you.
 - `createGroup(groupId): Group` — found a new group.
-- `joinGroup(welcome, ratchetTree): Group` — join from an add's output.
+- `joinGroup(welcome, ratchetTree, groupId?): Group` — join from an add's output; pass `groupId` to make it reloadable after a restart.
+- `group(groupId): Group | undefined` — get a group handle by id (e.g. after `open` restores it).
 
 **`Group`**
 - `add(keyPackage): { welcome, ratchetTree, proposal, commit }` — add a member (commits + applies locally).
@@ -78,6 +81,28 @@ Transporting these between processes/devices is up to your application — every
 - `exportKey(label, context, length): Uint8Array` — derive an exported group secret.
 
 **Helpers:** `encodeUtf8`, `decodeUtf8`, `toHex`, `fromHex`. The raw generated bindings are also re-exported as `raw` for advanced use.
+
+### Persistence
+
+By default a client is in-memory and forgets everything when the process exits. For persistence across restarts, open a client with a `StorageAdapter` and `save()` after operations you want to keep:
+
+```ts
+import { MlsClient, FileStorageAdapter } from "mls4rn";
+
+const adapter = new FileStorageAdapter("./data");
+
+// session 1
+const alice = await MlsClient.open("alice", adapter);
+const group = alice.createGroup("room");
+// ... add members, send / receive ...
+await alice.save();
+
+// session 2 (after a restart): the same id + adapter restores the session
+const alice2 = await MlsClient.open("alice", adapter);
+const group2 = alice2.group("room"); // resumes where it left off
+```
+
+The `StorageAdapter` interface is a tiny async `load`/`save` key–value store, so you can target other platforms (IndexedDB on web, AsyncStorage on React Native) by supplying your own. Only the Node `FileStorageAdapter` ships today.
 
 ## Demo
 
@@ -121,7 +146,7 @@ npm run build:wasm # regenerate wasm/ from the vendored Rust source (needs Rust 
 This is a prototype. Current known constraints:
 
 - **Node.js only** — built for the wasm-pack `nodejs` target. React Native has no built-in WebAssembly runtime, and a browser/bundler target is not yet provided.
-- **In-memory storage only** — key material and group state live in memory; there is no persistence.
+- **Persistence is opt-in and coarse** — without an adapter, clients are in-memory and forget everything on exit. With a `StorageAdapter`, `save()` writes a **full snapshot** of the client's storage each time (simple, not incremental), and snapshots hold private keys **unencrypted at rest** unless your adapter encrypts them. Only a Node file adapter ships.
 - **Single fixed ciphersuite** — `MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519`.
 - **Rough edges** — malformed input to `receive()` currently surfaces as a thrown wasm error rather than a clean typed error.
 
