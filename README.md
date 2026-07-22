@@ -114,7 +114,7 @@ npm run demo
 
 ## Development
 
-The wrapper depends only on the prebuilt WebAssembly committed under [`wasm/`](./wasm); the OpenMLS Rust source is vendored under `openmls/` as build-time input (gitignored).
+The wrapper depends only on the prebuilt WebAssembly committed under [`wasm/`](./wasm). The OpenMLS Rust source is vendored under `openmls/` as committed build input, so the wasm can be rebuilt from a clean clone — see [openmls/VENDOR.md](./openmls/VENDOR.md). Only `npm run build:wasm` uses it, and only that step needs a Rust toolchain.
 
 ```bash
 npm install        # install dev dependencies + link the local wasm package
@@ -132,7 +132,7 @@ npm run build:wasm # regenerate wasm/ from the vendored Rust source (needs Rust 
 ├── tests/             # vitest end-to-end tests
 ├── wasm/              # committed openmls-wasm build artifact (bundled on publish)
 ├── scripts/           # build-wasm.sh (regenerates wasm/)
-├── openmls/           # vendored OpenMLS Rust source (gitignored, build-time only)
+├── openmls/           # vendored OpenMLS Rust source (committed build input; see VENDOR.md)
 ├── docs/              # project notes and documentation
 ├── CONTRIBUTING.md    # contribution guidelines
 ├── CODE_OF_CONDUCT.md # community expectations

@@ -1,11 +1,9 @@
-# Vendored OpenMLS Rust workspace — build-time input only.
-# Ignore the whole workspace EXCEPT the openmls-wasm crate, which we modify
-# (snapshot/restore bindings) and therefore keep in version control. The built
-# artifact is committed separately in wasm/.
-/openmls/*
-!/openmls/openmls-wasm/
-/openmls/openmls-wasm/target/
-/openmls/openmls-wasm/pkg/
+# Vendored OpenMLS Rust workspace — committed as build input (see
+# openmls/VENDOR.md) so contributors can rebuild the wasm from a clean clone.
+# Only build outputs are ignored (also covered by openmls' nested .gitignores).
+/openmls/target/
+/openmls/**/target/
+/openmls/**/pkg/
 
 # Node / TypeScript
 node_modules/
