@@ -1,21 +1,29 @@
 import { useEffect, useRef, useState } from "react";
-import { MlsClient, init, toHex, type Group } from "mls4rn";
+import { MlsClient, IndexedDBStorageAdapter, init, toHex, encodeUtf8, decodeUtf8, type Group } from "mls4rn";
 
 const MEMBERS = ["alice", "bob", "charlie"] as const;
 type Member = (typeof MEMBERS)[number];
+const ROOM = "web-demo";
+const HISTORY_KEY = "chat-history";
 
 interface Msg {
   from: Member;
   text: string;
 }
 
+// Browser-persistent storage — the same StorageAdapter interface as the Node
+// FileStorageAdapter, backed by IndexedDB.
+const adapter = new IndexedDBStorageAdapter();
+
 export function App() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [restored, setRestored] = useState(false);
   const [convos, setConvos] = useState<Record<Member, Msg[]>>({ alice: [], bob: [], charlie: [] });
   const [wire, setWire] = useState<string>("");
   const [sender, setSender] = useState<Member>("alice");
   const [text, setText] = useState("");
+  const clientsRef = useRef<Record<Member, MlsClient> | null>(null);
   const groupsRef = useRef<Record<Member, Group> | null>(null);
 
   useEffect(() => {
@@ -23,16 +31,41 @@ export function App() {
     (async () => {
       try {
         await init(); // load the WebAssembly (browser-only step)
-        const clients = { alice: new MlsClient("alice"), bob: new MlsClient("bob"), charlie: new MlsClient("charlie") };
-        const gA = clients.alice.createGroup("web-demo");
-        const addB = gA.add(clients.bob.keyPackage());
-        const gB = clients.bob.joinGroup(addB.welcome, addB.ratchetTree, "web-demo");
-        const addC = gA.add(clients.charlie.keyPackage());
-        gB.receive(addC.proposal);
-        gB.receive(addC.commit);
-        const gC = clients.charlie.joinGroup(addC.welcome, addC.ratchetTree, "web-demo");
+
+        // Open each client from IndexedDB — restores a prior session if present.
+        const clients = {
+          alice: await MlsClient.open("alice", adapter),
+          bob: await MlsClient.open("bob", adapter),
+          charlie: await MlsClient.open("charlie", adapter),
+        };
+
+        let groups: Record<Member, Group>;
+        if (clients.alice.group(ROOM)) {
+          // Resuming a session persisted on a previous visit.
+          groups = {
+            alice: clients.alice.group(ROOM)!,
+            bob: clients.bob.group(ROOM)!,
+            charlie: clients.charlie.group(ROOM)!,
+          };
+          const saved = await adapter.load(HISTORY_KEY);
+          if (saved && !cancelled) setConvos(JSON.parse(decodeUtf8(saved)) as Record<Member, Msg[]>);
+          if (!cancelled) setRestored(true);
+        } else {
+          // First visit — create the group and persist it.
+          const gA = clients.alice.createGroup(ROOM);
+          const addB = gA.add(clients.bob.keyPackage());
+          const gB = clients.bob.joinGroup(addB.welcome, addB.ratchetTree, ROOM);
+          const addC = gA.add(clients.charlie.keyPackage());
+          gB.receive(addC.proposal);
+          gB.receive(addC.commit);
+          const gC = clients.charlie.joinGroup(addC.welcome, addC.ratchetTree, ROOM);
+          groups = { alice: gA, bob: gB, charlie: gC };
+          await Promise.all(MEMBERS.map((m) => clients[m].save()));
+        }
+
         if (cancelled) return;
-        groupsRef.current = { alice: gA, bob: gB, charlie: gC };
+        clientsRef.current = clients;
+        groupsRef.current = groups;
         setReady(true);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -43,25 +76,33 @@ export function App() {
     };
   }, []);
 
-  function send() {
+  async function send() {
     const groups = groupsRef.current;
-    if (!groups || !text.trim()) return;
+    const clients = clientsRef.current;
+    if (!groups || !clients || !text.trim()) return;
 
-    // Encrypt once; decrypt on each other member's device. (Do the stateful
-    // wasm calls here, outside setState, so they run exactly once.)
     const ciphertext = groups[sender].send(text);
     const seen: Record<Member, string> = { alice: "", bob: "", charlie: "" };
-    for (const m of MEMBERS) {
-      seen[m] = m === sender ? text : groups[m].receiveText(ciphertext) ?? "";
-    }
+    for (const m of MEMBERS) seen[m] = m === sender ? text : groups[m].receiveText(ciphertext) ?? "";
+
+    const nextConvos: Record<Member, Msg[]> = { alice: [], bob: [], charlie: [] };
+    for (const m of MEMBERS) nextConvos[m] = [...convos[m], { from: sender, text: seen[m] }];
 
     setWire(toHex(ciphertext));
-    setConvos((prev) => {
-      const next = { ...prev };
-      for (const m of MEMBERS) next[m] = [...prev[m], { from: sender, text: seen[m] }];
-      return next;
-    });
+    setConvos(nextConvos);
     setText("");
+
+    // Persist the advanced MLS state + the message history to IndexedDB.
+    await Promise.all(MEMBERS.map((m) => clients[m].save()));
+    await adapter.save(HISTORY_KEY, encodeUtf8(JSON.stringify(nextConvos)));
+  }
+
+  async function reset() {
+    await new Promise<void>((resolve) => {
+      const req = indexedDB.deleteDatabase("mls4rn");
+      req.onsuccess = req.onerror = () => resolve();
+    });
+    location.reload();
   }
 
   if (error) {
@@ -87,7 +128,11 @@ export function App() {
       <header>
         <h1>🔐 mls4rn — encrypted group chat, live in your browser</h1>
         <p className="muted">
-          Real OpenMLS (via WebAssembly). Type as any member; the message is encrypted, and only members decrypt it.
+          Real OpenMLS (via WebAssembly), persisted in IndexedDB.{" "}
+          {restored ? "✓ Session restored from your last visit." : "Try refreshing — your session survives."}{" "}
+          <button className="link" onClick={reset}>
+            reset
+          </button>
         </p>
       </header>
 
