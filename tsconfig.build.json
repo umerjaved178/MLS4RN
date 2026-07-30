@@ -3,5 +3,5 @@
   // out the demo (which is a runnable example, not part of the library API).
   // The base tsconfig.json is still used for editor/typecheck and covers demo.ts.
   "extends": "./tsconfig.json",
-  "exclude": ["src/demo.ts", "tests", "dist", "node_modules"]
+  "exclude": ["src/demo.ts", "src/demo-chat.ts", "src/demo-files.ts", "tests", "dist", "node_modules"]
 }
