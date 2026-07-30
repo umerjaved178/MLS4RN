@@ -35,6 +35,8 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "demo": "tsx src/demo.ts",
+    "demo:present": "tsx src/demo-chat.ts",
+    "demo:files": "tsx src/demo-files.ts",
     "test": "vitest run",
     "prepack": "npm run build"
   },
