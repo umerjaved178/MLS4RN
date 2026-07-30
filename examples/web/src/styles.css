@@ -1,0 +1,173 @@
+:root {
+  --alice: #b5179e;
+  --bob: #2a9d8f;
+  --charlie: #e9a800;
+  --bg: #0f1115;
+  --panel: #171a21;
+  --border: #262b36;
+  --text: #e6e8ee;
+  --muted: #8b93a7;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px 20px 96px;
+}
+
+header h1 {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.error {
+  color: #ff6b6b;
+}
+
+.wire {
+  margin: 18px 0;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.wire-label {
+  color: var(--muted);
+}
+
+.wire code {
+  color: #7aa2f7;
+  word-break: break-all;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.column {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+}
+
+.column h2 {
+  font-size: 14px;
+  margin: 0 0 10px;
+  text-transform: capitalize;
+}
+
+.column h2.alice {
+  color: var(--alice);
+}
+.column h2.bob {
+  color: var(--bob);
+}
+.column h2.charlie {
+  color: var(--charlie);
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px;
+  background: #1f2330;
+  border-radius: 9px;
+  font-size: 13px;
+}
+
+.bubble.own {
+  background: #223042;
+}
+
+.author {
+  font-size: 11px;
+  font-weight: 600;
+}
+.author.alice {
+  color: var(--alice);
+}
+.author.bob {
+  color: var(--bob);
+}
+.author.charlie {
+  color: var(--charlie);
+}
+
+.composer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  padding: 14px 20px;
+  background: rgba(15, 17, 21, 0.95);
+  border-top: 1px solid var(--border);
+}
+
+.composer select,
+.composer input,
+.composer button {
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 9px 12px;
+}
+
+.composer input {
+  flex: 1;
+}
+
+.composer button {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.link {
+  background: none;
+  border: none;
+  color: #7aa2f7;
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+  text-decoration: underline;
+}

@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
 #
-# Regenerate the openmls-wasm (nodejs target) bindings from the vendored Rust
-# source and refresh the committed wasm/ artifact.
+# Regenerate the openmls-wasm bindings from the vendored Rust source and refresh
+# the committed artifacts:
+#   - wasm/       Node target (CommonJS, loads synchronously)
+#   - wasm-web/   Web target  (ES modules, requires `await init()` in the browser)
 #
-# The Rust source under openmls/ is gitignored (build-time input only); the
-# BUILT artifact in wasm/ is what gets committed and shipped.
+# The Rust source under openmls/ is the build-time input; the BUILT artifacts in
+# wasm/ and wasm-web/ are what get committed and shipped.
 #
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CRATE="$ROOT/openmls/openmls-wasm"
-DEST="$ROOT/wasm"
 
 if [ ! -d "$CRATE" ]; then
   echo "error: vendored openmls source not found at $CRATE" >&2
-  echo "It is gitignored (build-time only). Restore it before rebuilding." >&2
+  echo "It is committed under openmls/. Restore it before rebuilding." >&2
   exit 1
 fi
 
@@ -23,13 +24,18 @@ command -v wasm-pack >/dev/null 2>&1 || {
   exit 1
 }
 
-echo "==> Building openmls-wasm (target: nodejs)"
-wasm-pack build "$CRATE" --target nodejs
+build_target() {
+  local target="$1" dest="$2"
+  echo "==> Building openmls-wasm (target: $target)"
+  wasm-pack build "$CRATE" --target "$target"
+  echo "==> Refreshing ${dest#"$ROOT"/}"
+  rm -rf "$dest"
+  mkdir -p "$dest"
+  # Copy everything EXCEPT pkg's own '*' .gitignore, which would hide the artifact.
+  rsync -a --exclude='.gitignore' "$CRATE/pkg/" "$dest/"
+}
 
-echo "==> Refreshing committed artifact at wasm/"
-rm -rf "$DEST"
-mkdir -p "$DEST"
-# Copy everything EXCEPT pkg's own '*' .gitignore, which would hide the artifact.
-rsync -a --exclude='.gitignore' "$CRATE/pkg/" "$DEST/"
+build_target nodejs "$ROOT/wasm"
+build_target web "$ROOT/wasm-web"
 
-echo "==> Done. wasm/ refreshed."
+echo "==> Done. wasm/ and wasm-web/ refreshed."
