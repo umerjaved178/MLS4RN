@@ -15,7 +15,7 @@
 // Fixed ciphersuite (set in the crate):
 // MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519.
 
-import * as wasm from "openmls-wasm";
+import * as wasm from "./wasm.js";
 import { encodeUtf8, decodeUtf8 } from "./bytes.js";
 import type { StorageAdapter } from "./storage.js";
 

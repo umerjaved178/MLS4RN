@@ -19,5 +19,9 @@ export { FileStorageAdapter } from "./storage.js";
 export type { StorageAdapter } from "./storage.js";
 export { encodeUtf8, decodeUtf8, toHex, fromHex } from "./bytes.js";
 
+// Load the WebAssembly. Required in the browser (`await init()` before use);
+// a no-op in Node, where the wasm loads automatically.
+export { init } from "./wasm.js";
+
 // Escape hatch: the raw generated bindings, for advanced/interop use.
-export * as raw from "openmls-wasm";
+export * as raw from "./wasm.js";

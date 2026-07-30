@@ -12,8 +12,12 @@
       "import": "./dist/index.js"
     }
   },
+  "browser": {
+    "./dist/wasm.js": "./dist/wasm.browser.js"
+  },
   "files": [
     "dist",
+    "wasm-web",
     "README.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md"
