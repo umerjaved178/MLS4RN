@@ -3,8 +3,16 @@
   "version": "0.0.0",
   "description": "React Native support for mls4rn (OpenMLS) — runs the web build inside a hidden WebView",
   "private": true,
+  "type": "module",
   "license": "MIT",
   "scripts": {
-    "build:host": "npm --prefix host run build"
+    "build:host": "npm --prefix host run build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "mls4rn": "file:../..",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }
