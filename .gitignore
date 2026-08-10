@@ -13,5 +13,11 @@ build/
 *.log
 *.tgz
 
+# Generated RN embedded host bundle (regenerate with `npm run rn:host`)
+packages/react-native/src/host-html.ts
+
+# Expo
+.expo/
+
 # OS
 .DS_Store

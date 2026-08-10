@@ -5,10 +5,25 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "main": "./src/index.ts",
+  "react-native": "./src/native.tsx",
+  "exports": {
+    ".": {
+      "react-native": "./src/native.tsx",
+      "default": "./src/index.ts"
+    }
+  },
   "scripts": {
     "build:host": "npm --prefix host run build",
+    "embed": "node scripts/embed-host.mjs",
+    "rn:host": "npm run build:host && npm run embed",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*",
+    "react-native-webview": "*"
   },
   "devDependencies": {
     "mls4rn": "file:../..",

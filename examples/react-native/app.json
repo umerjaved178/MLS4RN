@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "mls4rn-rn-demo",
+    "slug": "mls4rn-rn-demo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": ["ios", "android"],
+    "newArchEnabled": true,
+    "userInterfaceStyle": "dark"
+  }
+}
