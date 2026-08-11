@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
-import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  DevSettings,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MlsProvider, useMls, type Group } from "mls4rn-react-native";
+
+const LOG_KEY = "mls4rn-log";
 
 // Show the tail of the ciphertext — the encrypted content, not the cleartext
 // MLS framing metadata (group id, epoch) at the front.
@@ -13,6 +25,7 @@ function toHexTail(bytes: Uint8Array, n: number): string {
 function Chat() {
   const mls = useMls();
   const [ready, setReady] = useState(false);
+  const [restored, setRestored] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [text, setText] = useState("");
@@ -22,13 +35,24 @@ function Chat() {
     let cancelled = false;
     (async () => {
       try {
-        await mls.ready();
-        const alice = await mls.newClient("alice");
-        const bob = await mls.newClient("bob");
-        const group = await alice.createGroup("room");
-        const add = await group.add(await bob.keyPackage());
-        const bobGroup = await bob.joinGroup(add.welcome, add.ratchetTree, "room");
+        await mls.ready(); // restores a prior snapshot from AsyncStorage
+        const alice = await mls.openClient("alice");
+        const bob = await mls.openClient("bob");
+
+        let group = await alice.group("room");
+        let bobGroup = await bob.group("room");
+        if (group && bobGroup) {
+          if (!cancelled) setRestored(true);
+        } else {
+          group = await alice.createGroup("room");
+          const add = await group.add(await bob.keyPackage());
+          bobGroup = await bob.joinGroup(add.welcome, add.ratchetTree, "room");
+          await mls.save();
+        }
+
+        const savedLog = await AsyncStorage.getItem(LOG_KEY);
         if (cancelled) return;
+        if (savedLog) setLog(JSON.parse(savedLog) as string[]);
         setGroups({ alice: group, bob: bobGroup });
         setReady(true);
       } catch (e) {
@@ -46,19 +70,35 @@ function Chat() {
     setText("");
     const ciphertext = await groups.alice.send(message);
     const decrypted = await groups.bob.receiveText(ciphertext);
-    setLog((l) => [
-      ...l,
+    const next = [
+      ...log,
       `alice ▸ "${message}"`,
       `🔒 wire: …${toHexTail(ciphertext, 8)} (${ciphertext.length} B)`,
       `bob decrypts ▸ "${decrypted}"`,
-    ]);
+    ];
+    setLog(next);
+    await mls.save(); // persist MLS state
+    await AsyncStorage.setItem(LOG_KEY, JSON.stringify(next)); // persist the transcript
+  }
+
+  async function reset() {
+    await AsyncStorage.clear();
+    DevSettings.reload();
   }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🔐 mls4rn — React Native</Text>
       <Text style={styles.status}>
-        {error ? `error: ${error}` : ready ? "✓ MLS running in a hidden WebView" : "loading WebAssembly…"}
+        {error
+          ? `error: ${error}`
+          : !ready
+            ? "loading WebAssembly…"
+            : restored
+              ? "✓ session restored from AsyncStorage"
+              : "✓ MLS running in a hidden WebView"}
+        {ready ? "  ·  " : ""}
+        {ready ? <Text style={styles.reset} onPress={reset}>reset</Text> : null}
       </Text>
       <ScrollView style={styles.log} contentContainerStyle={styles.logContent}>
         {log.map((line, i) => (
@@ -87,7 +127,7 @@ function Chat() {
 
 export default function App() {
   return (
-    <MlsProvider>
+    <MlsProvider storage={AsyncStorage}>
       <SafeAreaView style={styles.safe}>
         <Chat />
       </SafeAreaView>
@@ -100,6 +140,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   title: { color: "#e6e8ee", fontSize: 18, fontWeight: "600" },
   status: { color: "#8b93a7", fontSize: 13, marginTop: 4, marginBottom: 12 },
+  reset: { color: "#7aa2f7", textDecorationLine: "underline" },
   log: { flex: 1, backgroundColor: "#171a21", borderRadius: 12 },
   logContent: { padding: 12, gap: 6 },
   line: { color: "#e6e8ee", fontSize: 13, fontFamily: "Courier" },

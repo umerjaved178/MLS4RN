@@ -6,7 +6,7 @@
 import React, { createContext, useContext, useMemo, useRef } from "react";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import { Bridge, type BridgeTransport } from "./bridge";
-import { Mls } from "./client";
+import { Mls, type KeyValueStore } from "./client";
 import { HOST_HTML } from "./host-html";
 
 const MlsContext = createContext<Mls | null>(null);
@@ -16,7 +16,16 @@ const MlsContext = createContext<Mls | null>(null);
  * to descendants (see {@link useMls}). Wrap the part of your app that needs MLS.
  * Requires `react-native-webview`.
  */
-export function MlsProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
+export function MlsProvider({
+  children,
+  storage,
+  storageKey = "mls4rn",
+}: {
+  children: React.ReactNode;
+  /** Optional persistence store (e.g. React Native AsyncStorage). */
+  storage?: KeyValueStore;
+  storageKey?: string;
+}): React.JSX.Element {
   const webviewRef = useRef<WebView>(null);
 
   const bridge = useMemo(() => {
@@ -30,7 +39,10 @@ export function MlsProvider({ children }: { children: React.ReactNode }): React.
     return new Bridge(transport);
   }, []);
 
-  const mls = useMemo(() => new Mls(bridge), [bridge]);
+  const mls = useMemo(
+    () => new Mls(bridge, storage ? { storage, key: storageKey } : undefined),
+    [bridge, storage, storageKey],
+  );
 
   return (
     <MlsContext.Provider value={mls}>

@@ -8,5 +8,5 @@
 export { Bridge } from "./bridge";
 export type { BridgeTransport } from "./bridge";
 export { Mls, MlsClient, Group } from "./client";
-export type { AddResult } from "./client";
+export type { AddResult, KeyValueStore } from "./client";
 export { bytesToBase64, base64ToBytes } from "./base64";

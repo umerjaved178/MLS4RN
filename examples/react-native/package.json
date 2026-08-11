@@ -9,6 +9,7 @@
     "android": "expo start --android"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "1.23.1",
     "expo": "~52.0.0",
     "expo-asset": "~11.0.5",
     "expo-status-bar": "~2.0.1",
