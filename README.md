@@ -4,7 +4,11 @@ OpenMLS for TypeScript: MLS group messaging primitives for web, Node.js, and Rea
 
 ## Status
 
-Early prototype. The current build targets **Node.js** via a thin, typed TypeScript facade over the [`openmls-wasm`](./openmls/openmls-wasm) bindings. Web and React Native integration paths are planned (see [Limitations](#limitations)).
+Early prototype. A thin, typed TypeScript facade over the [`openmls-wasm`](./openmls/openmls-wasm) bindings, with three integration targets:
+
+- **Node.js** — synchronous, using the bundled Node WebAssembly build (this package).
+- **Web** — asynchronous, using the browser WebAssembly build (selected via the package `browser` field; see [`examples/web`](./examples/web)).
+- **React Native** — asynchronous, running the web build inside a hidden WebView ([`mls4rn-react-native`](./packages/react-native); see [`examples/react-native`](./examples/react-native)).
 
 The project is developed with support from Prototype Fund.
 
@@ -145,7 +149,7 @@ npm run build:wasm # regenerate wasm/ from the vendored Rust source (needs Rust 
 
 This is a prototype. Current known constraints:
 
-- **Node.js only** — built for the wasm-pack `nodejs` target. React Native has no built-in WebAssembly runtime, and a browser/bundler target is not yet provided.
+- **Async on web and React Native** — the Node target is synchronous; the browser target loads WebAssembly via `init()`, and React Native additionally round-trips through a hidden WebView bridge (Hermes has no WebAssembly runtime). See [`mls4rn-react-native`](./packages/react-native) for its specific constraints.
 - **Persistence is opt-in and coarse** — without an adapter, clients are in-memory and forget everything on exit. With a `StorageAdapter`, `save()` writes a **full snapshot** of the client's storage each time (simple, not incremental), and snapshots hold private keys **unencrypted at rest** unless your adapter encrypts them. Only a Node file adapter ships.
 - **Single fixed ciphersuite** — `MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519`.
 - **Rough edges** — malformed input to `receive()` currently surfaces as a thrown wasm error rather than a clean typed error.
