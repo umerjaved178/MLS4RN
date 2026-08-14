@@ -50,10 +50,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: packages/react-native/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            packages/react-native/package-lock.json
 
-      # The package talks to the SDK over a bridge and tests against the committed
-      # Node wasm, so no root build or Rust toolchain is needed here.
+      # The RN tests load the SDK from source, which imports the committed wasm as
+      # the `openmls-wasm` package — so the root deps must be linked. No build or
+      # Rust toolchain is needed (the wasm is committed and linked via file:./wasm).
+      - name: Install SDK deps (links openmls-wasm)
+        run: npm ci
+
       - name: Install
         working-directory: packages/react-native
         run: npm ci
