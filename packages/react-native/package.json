@@ -7,10 +7,10 @@
   "license": "MIT",
   "main": "./src/index.ts",
   "react-native": "./src/native.tsx",
-  "types": "./index.d.ts",
+  "types": "./dist/native.d.ts",
   "files": [
     "src",
-    "index.d.ts",
+    "dist",
     "scripts",
     "README.md"
   ],
@@ -18,7 +18,9 @@
     "build:host": "npm --prefix host run build",
     "embed": "node scripts/embed-host.mjs",
     "rn:host": "npm run build:host && npm run embed",
-    "prepack": "npm run rn:host",
+    "build:types": "tsc -p tsconfig.build.json",
+    "build": "npm run rn:host && npm run build:types",
+    "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -28,7 +30,11 @@
     "react-native-webview": "*"
   },
   "devDependencies": {
+    "@types/react": "~18.3.12",
     "mls4rn": "file:../..",
+    "react": "18.3.1",
+    "react-native": "0.76.9",
+    "react-native-webview": "13.12.5",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

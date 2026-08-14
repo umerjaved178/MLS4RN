@@ -1,0 +1,10 @@
+{
+  "//": "Emits public .d.ts declarations to dist/ from the react-native entry. Run via `npm run build:types`.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "emitDeclarationOnly": true,
+    "declarationMap": false
+  },
+  "include": ["src/native.tsx"],
+  "exclude": ["tests", "node_modules"]
+}

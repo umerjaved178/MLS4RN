@@ -3,6 +3,7 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
     "lib": ["ES2022"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -14,6 +15,6 @@
     "rootDir": "src"
   },
   "include": ["src"],
-  "//": "The react-native glue (provider/native) is typechecked in the app, which has the RN toolchain.",
-  "exclude": ["src/native.tsx", "src/provider.tsx", "src/host-html.ts"]
+  "//": "The RN glue (provider/native) is typechecked here too, using the react/react-native-webview devDeps. host-html.ts is generated; its type comes from host-html.d.ts.",
+  "exclude": ["src/host-html.ts"]
 }
