@@ -37,3 +37,37 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  react-native:
+    name: React Native package
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: packages/react-native/package-lock.json
+
+      # The package talks to the SDK over a bridge and tests against the committed
+      # Node wasm, so no root build or Rust toolchain is needed here.
+      - name: Install
+        working-directory: packages/react-native
+        run: npm ci
+
+      - name: Type-check
+        working-directory: packages/react-native
+        run: npm run typecheck
+
+      # Compiles the public .d.ts from source (the type declarations aren't
+      # committed) — fails if the source stops type-checking.
+      - name: Build declarations
+        working-directory: packages/react-native
+        run: npm run build:types
+
+      - name: Test
+        working-directory: packages/react-native
+        run: npm test
