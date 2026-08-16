@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MlsProvider, useMls, type Group } from "mls4rn-react-native";
 
-function toHex(bytes: Uint8Array, n: number): string {
-  return Array.from(bytes.slice(0, n))
+// Show the tail of the ciphertext — the encrypted content, not the cleartext
+// MLS framing metadata (group id, epoch) at the front.
+function toHexTail(bytes: Uint8Array, n: number): string {
+  return Array.from(bytes.slice(-n))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
@@ -47,7 +49,7 @@ function Chat() {
     setLog((l) => [
       ...l,
       `alice ▸ "${message}"`,
-      `🔒 wire: ${toHex(ciphertext, 8)}… (${ciphertext.length} B)`,
+      `🔒 wire: …${toHexTail(ciphertext, 8)} (${ciphertext.length} B)`,
       `bob decrypts ▸ "${decrypted}"`,
     ]);
   }

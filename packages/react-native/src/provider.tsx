@@ -5,9 +5,9 @@
 
 import React, { createContext, useContext, useMemo, useRef } from "react";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
-import { Bridge, type BridgeTransport } from "./bridge.js";
-import { Mls } from "./client.js";
-import { HOST_HTML } from "./host-html.js";
+import { Bridge, type BridgeTransport } from "./bridge";
+import { Mls } from "./client";
+import { HOST_HTML } from "./host-html";
 
 const MlsContext = createContext<Mls | null>(null);
 

@@ -10,10 +10,11 @@
   },
   "dependencies": {
     "expo": "~52.0.0",
+    "expo-asset": "~11.0.5",
     "expo-status-bar": "~2.0.1",
     "mls4rn-react-native": "file:../../packages/react-native",
     "react": "18.3.1",
-    "react-native": "0.76.5",
+    "react-native": "0.76.9",
     "react-native-webview": "13.12.5"
   },
   "devDependencies": {
