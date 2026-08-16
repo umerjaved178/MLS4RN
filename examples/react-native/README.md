@@ -14,10 +14,10 @@ A minimal Expo app that runs **real OpenMLS in React Native** via `mls4rn-react-
 npm install
 npm run build            # produces the web build the host bundle uses
 
-# 2) Generate the embedded host bundle in the RN package:
+# 2) Build the RN package (embedded host bundle + type declarations):
 cd packages/react-native
 npm install
-npm run rn:host          # builds host/ and embeds it as src/host-html.ts
+npm run build            # host/ → src/host-html.ts, and compiles the .d.ts
 
 # 3) Install and run this app:
 cd ../../examples/react-native

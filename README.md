@@ -113,8 +113,12 @@ The `StorageAdapter` interface is a tiny async `load`/`save` key–value store, 
 A runnable, narrated three-party demo (alice, bob, charlie forming a group and exchanging messages):
 
 ```bash
-npm run demo
+npm run demo            # smoke demo (three parties form a group, exchange messages)
+npm run demo:present    # narrated encrypted group chat, with restart persistence
+npm run demo:files      # encrypted file sharing (per-file key derived from the group)
 ```
+
+The browser and React Native demos live under [`examples/web`](./examples/web) and [`examples/react-native`](./examples/react-native). For a full demo runbook covering all three targets — talking points, exact commands, and a Q&A cheat sheet — see [**docs/presentation.md**](./docs/presentation.md).
 
 ## Development
 
