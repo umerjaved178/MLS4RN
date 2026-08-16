@@ -8,10 +8,17 @@
   "main": "./src/index.ts",
   "react-native": "./src/native.tsx",
   "types": "./index.d.ts",
+  "files": [
+    "src",
+    "index.d.ts",
+    "scripts",
+    "README.md"
+  ],
   "scripts": {
     "build:host": "npm --prefix host run build",
     "embed": "node scripts/embed-host.mjs",
     "rn:host": "npm run build:host && npm run embed",
+    "prepack": "npm run rn:host",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
