@@ -15,4 +15,12 @@ config.resolver.nodeModulesPaths = [
   path.resolve(repoRoot, "node_modules"),
 ];
 
+// Force a single copy of React (and friends) so the linked package's provider
+// shares the app's React — otherwise hooks fail with "Invalid hook call".
+config.resolver.extraNodeModules = {
+  react: path.resolve(projectRoot, "node_modules/react"),
+  "react-native": path.resolve(projectRoot, "node_modules/react-native"),
+  "react-native-webview": path.resolve(projectRoot, "node_modules/react-native-webview"),
+};
+
 module.exports = config;

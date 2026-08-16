@@ -12,22 +12,63 @@ export interface AddResult {
   commit: Uint8Array;
 }
 
-/** Entry point: create participants once the bridge is ready. */
+/** A key/value store for persistence — matches React Native's AsyncStorage. */
+export interface KeyValueStore {
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+}
+
+interface Persistence {
+  storage: KeyValueStore;
+  key: string;
+}
+
+/** Entry point: create/restore participants once the bridge is ready. */
 export class Mls {
   readonly #bridge: Bridge;
+  readonly #persistence?: Persistence;
+  #readyOnce?: Promise<void>;
 
-  constructor(bridge: Bridge) {
+  constructor(bridge: Bridge, persistence?: Persistence) {
     this.#bridge = bridge;
+    this.#persistence = persistence;
   }
 
-  /** Resolves once the underlying WebAssembly host is ready. */
+  /**
+   * Resolves once the WebAssembly host is ready and (if persistence is
+   * configured) a prior snapshot has been restored. Await this before opening
+   * clients.
+   */
   ready(): Promise<void> {
-    return this.#bridge.ready;
+    if (!this.#readyOnce) {
+      this.#readyOnce = (async () => {
+        await this.#bridge.ready;
+        if (this.#persistence) {
+          const snapshot = await this.#persistence.storage.getItem(this.#persistence.key);
+          if (snapshot) await this.#bridge.request("restore", { snapshot });
+        }
+      })();
+    }
+    return this.#readyOnce;
   }
 
+  /** An in-memory client (not persisted). */
   async newClient(name: string): Promise<MlsClient> {
     const { client } = await this.#bridge.request<{ client: string }>("newClient", { name });
     return new MlsClient(this.#bridge, client);
+  }
+
+  /** A persistent client, restored from the snapshot if `id` was saved before. */
+  async openClient(id: string): Promise<MlsClient> {
+    const { client } = await this.#bridge.request<{ client: string }>("openClient", { id });
+    return new MlsClient(this.#bridge, client);
+  }
+
+  /** Persist the current state to the configured storage. No-op without one. */
+  async save(): Promise<void> {
+    if (!this.#persistence) return;
+    const { snapshot } = await this.#bridge.request<{ snapshot: string }>("snapshot", {});
+    await this.#persistence.storage.setItem(this.#persistence.key, snapshot);
   }
 }
 
@@ -35,7 +76,7 @@ export class MlsClient {
   readonly #bridge: Bridge;
   readonly #handle: string;
 
-  /** @internal Use {@link Mls.newClient}. */
+  /** @internal Use {@link Mls.newClient} / {@link Mls.openClient}. */
   constructor(bridge: Bridge, handle: string) {
     this.#bridge = bridge;
     this.#handle = handle;
@@ -60,13 +101,27 @@ export class MlsClient {
     });
     return new Group(this.#bridge, group);
   }
+
+  /** Get a group handle by id (e.g. after a persistent client is restored). */
+  async group(groupId: string): Promise<Group | null> {
+    const { group } = await this.#bridge.request<{ group: string | null }>("group", {
+      client: this.#handle,
+      groupId,
+    });
+    return group ? new Group(this.#bridge, group) : null;
+  }
+
+  /** Save this client's state into the host store (persist via {@link Mls.save}). */
+  async save(): Promise<void> {
+    await this.#bridge.request("saveClient", { client: this.#handle });
+  }
 }
 
 export class Group {
   readonly #bridge: Bridge;
   readonly #handle: string;
 
-  /** @internal Use MlsClient.createGroup / joinGroup. */
+  /** @internal Use MlsClient.createGroup / joinGroup / group. */
   constructor(bridge: Bridge, handle: string) {
     this.#bridge = bridge;
     this.#handle = handle;
