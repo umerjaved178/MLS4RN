@@ -37,3 +37,43 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  react-native:
+    name: React Native package
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/react-native/package-lock.json
+
+      # The RN tests load the SDK from source, which imports the committed wasm as
+      # the `openmls-wasm` package — so the root deps must be linked. No build or
+      # Rust toolchain is needed (the wasm is committed and linked via file:./wasm).
+      - name: Install SDK deps (links openmls-wasm)
+        run: npm ci
+
+      - name: Install
+        working-directory: packages/react-native
+        run: npm ci
+
+      - name: Type-check
+        working-directory: packages/react-native
+        run: npm run typecheck
+
+      # Compiles the public .d.ts from source (the type declarations aren't
+      # committed) — fails if the source stops type-checking.
+      - name: Build declarations
+        working-directory: packages/react-native
+        run: npm run build:types
+
+      - name: Test
+        working-directory: packages/react-native
+        run: npm test
