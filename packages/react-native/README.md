@@ -12,13 +12,13 @@ npm install mls4rn-react-native react-native-webview
 npm install @react-native-async-storage/async-storage
 ```
 
-`react` and `react-native` are peer dependencies (provided by your app). The embedded WebAssembly host bundle is generated from source — run once after install:
+`react` and `react-native` are peer dependencies (provided by your app). The package builds two things from source — the embedded WebAssembly host bundle and its TypeScript declarations — run once after install:
 
 ```bash
-npm --prefix node_modules/mls4rn-react-native run rn:host
+npm --prefix node_modules/mls4rn-react-native run build
 ```
 
-(In this monorepo you build it from the package: `cd packages/react-native && npm run rn:host`.)
+(In this monorepo you build it from the package: `cd packages/react-native && npm run build`. `npm publish` runs this automatically via `prepack`.)
 
 ## Usage
 
