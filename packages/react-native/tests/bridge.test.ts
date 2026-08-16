@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import { Bridge, type BridgeTransport } from "../src/bridge.js";
 import { Mls } from "../src/client.js";
 import { base64ToBytes, bytesToBase64 } from "../src/base64.js";
-import { MlsClient as NodeClient, type Group as NodeGroup } from "mls4rn";
+// Loop back against the mls4rn source (not the built package) so this test needs
+// no prior root build — Vite resolves the TS source and uses the committed Node wasm.
+import { MlsClient as NodeClient, type Group as NodeGroup } from "../../../src/index.js";
 
 // A loopback "host" that services bridge requests with the real Node mls4rn,
 // mirroring what the WebView host does with the web build. This exercises the
