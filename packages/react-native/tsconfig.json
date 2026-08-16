@@ -13,5 +13,7 @@
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "//": "The react-native glue (provider/native) is typechecked in the app, which has the RN toolchain.",
+  "exclude": ["src/native.tsx", "src/provider.tsx", "src/host-html.ts"]
 }
