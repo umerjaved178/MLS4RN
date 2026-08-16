@@ -2,8 +2,8 @@
 // Promise-returning because it round-trips through the WebView bridge. State
 // lives in the WebView; these objects hold opaque string handles.
 
-import type { Bridge } from "./bridge.js";
-import { bytesToBase64, base64ToBytes } from "./base64.js";
+import type { Bridge } from "./bridge";
+import { bytesToBase64, base64ToBytes } from "./base64";
 
 export interface AddResult {
   welcome: Uint8Array;

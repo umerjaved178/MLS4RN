@@ -5,8 +5,8 @@
 // provider (`MlsProvider` / `useMls`) that wires it to a real device is added
 // in the next step.
 
-export { Bridge } from "./bridge.js";
-export type { BridgeTransport } from "./bridge.js";
-export { Mls, MlsClient, Group } from "./client.js";
-export type { AddResult } from "./client.js";
-export { bytesToBase64, base64ToBytes } from "./base64.js";
+export { Bridge } from "./bridge";
+export type { BridgeTransport } from "./bridge";
+export { Mls, MlsClient, Group } from "./client";
+export type { AddResult } from "./client";
+export { bytesToBase64, base64ToBytes } from "./base64";
