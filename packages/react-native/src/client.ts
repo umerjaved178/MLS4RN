@@ -1,4 +1,4 @@
-// Async facade for React Native — mirrors the mls4rn API, but every method is
+// Async facade for React Native — mirrors the mls-ts API, but every method is
 // Promise-returning because it round-trips through the WebView bridge. State
 // lives in the WebView; these objects hold opaque string handles.
 

@@ -1,7 +1,7 @@
 // mls4rn WebView host: runs the real mls4rn SDK and exposes it to React Native
 // over the postMessage bridge. It never renders UI — it's a headless engine.
 
-import { MlsClient, init, type Group, type StorageAdapter } from "mls4rn";
+import { MlsClient, init, type Group, type StorageAdapter } from "mls-ts";
 import { type BridgeRequest, type BridgeOutbound, bytesToBase64, base64ToBytes } from "./bridge.js";
 
 const clients = new Map<string, MlsClient>();

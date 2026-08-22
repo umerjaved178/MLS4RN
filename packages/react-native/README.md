@@ -1,31 +1,32 @@
-# mls4rn-react-native
+# mls4rn
 
-React Native support for [mls4rn](../../) (OpenMLS) — end-to-end encrypted MLS group messaging on iOS and Android.
+**End-to-end encrypted group messaging for React Native.**
 
-React Native's JavaScript engine (Hermes) has no WebAssembly runtime, so this package runs the `mls4rn` **web** build inside a hidden `WebView` and talks to it over a `postMessage` bridge. The crypto is the same audited OpenMLS, unchanged; only the transport differs. Everything runs on-device — no server.
+`mls4rn` adds secure group chat to your React Native app. It implements **MLS** — Messaging Layer Security, the IETF standard ([RFC 9420](https://www.rfc-editor.org/rfc/rfc9420.html)) for end-to-end encrypted group messaging, with forward secrecy and post-compromise security — behind a small, `Promise`-based API. Everything runs on-device; nothing is sent to a server.
+
+It's the React Native companion to [`mls-ts`](https://www.npmjs.com/package/mls-ts) (the Node.js and browser package) and uses the same audited [OpenMLS](https://github.com/openmls/openmls) cryptography — no crypto is reimplemented in JavaScript.
+
+> **Why a WebView?** React Native's engine (Hermes) has no WebAssembly runtime, so `mls4rn` runs the WebAssembly build inside a hidden `WebView` and talks to it over a `postMessage` bridge. The embedded bundle ships **prebuilt** inside this package — there's no build step and no Rust toolchain needed to use it.
 
 ## Install
 
 ```bash
-npm install mls4rn-react-native react-native-webview
-# optional, for persistence:
+npm install mls4rn react-native-webview
+# optional, to persist sessions across app restarts:
 npm install @react-native-async-storage/async-storage
 ```
 
-`react` and `react-native` are peer dependencies (provided by your app). The package builds two things from source — the embedded WebAssembly host bundle and its TypeScript declarations — run once after install:
+- `react-native-webview` is a required peer dependency (it's a native module — use a dev build if Expo Go can't load it).
+- `react` and `react-native` are peer dependencies provided by your app.
 
-```bash
-npm --prefix node_modules/mls4rn-react-native run build
-```
-
-(In this monorepo you build it from the package: `cd packages/react-native && npm run build`. `npm publish` runs this automatically via `prepack`.)
+That's it — the encrypted-messaging bundle is already inside the package, so there's nothing to build after installing.
 
 ## Usage
 
 Wrap your app (or the part that needs MLS) in `MlsProvider`, then use `useMls()`:
 
 ```tsx
-import { MlsProvider, useMls } from "mls4rn-react-native";
+import { MlsProvider, useMls } from "mls4rn";
 
 function Chat() {
   const mls = useMls();
@@ -54,7 +55,7 @@ export default function App() {
 }
 ```
 
-Every method is `Promise`-returning (it round-trips through the WebView), and all byte values are `Uint8Array`.
+Every method returns a `Promise` (it round-trips through the WebView), and all byte values are `Uint8Array`.
 
 ### Persistence
 
@@ -87,8 +88,9 @@ await mls.save();                  // persist the current state
 
 ## Limitations
 
-- **Async-only** — everything crosses the WebView bridge, so all calls return Promises (vs. the sync Node/web facade).
+- **Async-only** — every call crosses the WebView bridge and returns a Promise (the `mls-ts` Node/browser API can be synchronous).
 - **Bridge overhead** — messages are base64-encoded over `postMessage`; fine for chat, not tuned for high throughput.
-- **Requires `react-native-webview`** and (for persistence) an AsyncStorage-like store.
-- **Monorepo note** — this package ships TypeScript source; a consuming app in a monorepo may need a `metro.config.js` that watches the package and dedupes React (see `examples/react-native`).
-- Inherits the SDK's limits: single fixed ciphersuite, add-only membership.
+- **Requires `react-native-webview`**, and (for persistence) an AsyncStorage-like store.
+- **Functional prototype** — the API is still evolving and it isn't hardened for production. Inherits the SDK's limits: a single fixed ciphersuite and add-only membership.
+
+For the underlying facade, Node/browser usage, and design notes, see the [`mls-ts` package](https://www.npmjs.com/package/mls-ts) and the [project repository](https://github.com/umerjaved178/MLS4RN).

@@ -1,4 +1,4 @@
-// In-memory, single-process demo of the mls4rn facade.
+// In-memory, single-process demo of the mls-ts facade.
 //
 // Models three participants (each its own MlsClient / in-memory Provider) that
 // form a group, add members, and exchange end-to-end encrypted messages —

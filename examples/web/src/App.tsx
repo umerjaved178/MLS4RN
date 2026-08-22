@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MlsClient, IndexedDBStorageAdapter, init, toHex, encodeUtf8, decodeUtf8, type Group } from "mls4rn";
+import { MlsClient, IndexedDBStorageAdapter, init, toHex, encodeUtf8, decodeUtf8, type Group } from "mls-ts";
 
 const MEMBERS = ["alice", "bob", "charlie"] as const;
 type Member = (typeof MEMBERS)[number];
@@ -99,7 +99,7 @@ export function App() {
 
   async function reset() {
     await new Promise<void>((resolve) => {
-      const req = indexedDB.deleteDatabase("mls4rn");
+      const req = indexedDB.deleteDatabase("mls-ts");
       req.onsuccess = req.onerror = () => resolve();
     });
     location.reload();
@@ -108,7 +108,7 @@ export function App() {
   if (error) {
     return (
       <div className="app">
-        <h1>mls4rn</h1>
+        <h1>mls-ts</h1>
         <p className="error">Failed to start: {error}</p>
       </div>
     );
@@ -117,7 +117,7 @@ export function App() {
   if (!ready) {
     return (
       <div className="app">
-        <h1>🔐 mls4rn</h1>
+        <h1>🔐 mls-ts</h1>
         <p className="muted">Loading WebAssembly…</p>
       </div>
     );
@@ -126,7 +126,7 @@ export function App() {
   return (
     <div className="app">
       <header>
-        <h1>🔐 mls4rn — encrypted group chat, live in your browser</h1>
+        <h1>🔐 mls-ts — encrypted group chat, live in your browser</h1>
         <p className="muted">
           Real OpenMLS (via WebAssembly), persisted in IndexedDB.{" "}
           {restored ? "✓ Session restored from your last visit." : "Try refreshing — your session survives."}{" "}

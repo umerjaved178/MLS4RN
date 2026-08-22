@@ -2,13 +2,13 @@
   "name": "mls4rn-rn-host",
   "private": true,
   "type": "module",
-  "description": "Web bundle that runs mls4rn inside the React Native hidden WebView and speaks the postMessage bridge.",
+  "description": "Web bundle that runs mls-ts inside the React Native hidden WebView and speaks the postMessage bridge.",
   "scripts": {
     "dev": "vite",
     "build": "vite build"
   },
   "dependencies": {
-    "mls4rn": "file:../../.."
+    "mls-ts": "file:../../.."
   },
   "devDependencies": {
     "typescript": "^5.7.2",

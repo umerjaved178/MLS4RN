@@ -1,9 +1,15 @@
 {
-  "name": "mls4rn",
+  "name": "mls-ts",
   "version": "0.1.0",
-  "description": "TypeScript wrapper around OpenMLS (via openmls-wasm) for the JS ecosystem",
+  "description": "End-to-end encrypted group messaging for Node.js and the browser, using the MLS protocol (RFC 9420).",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/umerjaved178/MLS4RN.git"
+  },
+  "homepage": "https://github.com/umerjaved178/MLS4RN#readme",
+  "bugs": "https://github.com/umerjaved178/MLS4RN/issues",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

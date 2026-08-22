@@ -280,14 +280,14 @@ function decodeEnvelope(bytes: Uint8Array): Envelope {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let pos = 0;
   const need = (n: number): void => {
-    if (pos + n > bytes.length) throw new Error("mls4rn: corrupt snapshot envelope");
+    if (pos + n > bytes.length) throw new Error("mls-ts: corrupt snapshot envelope");
   };
 
   need(1);
   const version = bytes[pos];
   pos += 1;
   if (version !== ENVELOPE_VERSION) {
-    throw new Error(`mls4rn: unsupported snapshot version ${version}`);
+    throw new Error(`mls-ts: unsupported snapshot version ${version}`);
   }
 
   const readU32 = (): number => {

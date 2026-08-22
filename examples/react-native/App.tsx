@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { MlsProvider, useMls, type Group } from "mls4rn-react-native";
+import { MlsProvider, useMls, type Group } from "mls4rn";
 
 const LOG_KEY = "mls4rn-log";
 

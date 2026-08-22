@@ -10,7 +10,7 @@ A runbook for demoing MLS4RN to leads or teammates. It covers the one-line story
 
 ```mermaid
 flowchart TD
-    App["Your app (TypeScript)"] --> Facade["mls4rn facade<br/>MlsClient · Group · StorageAdapter"]
+    App["Your app (TypeScript)"] --> Facade["mls-ts facade<br/>MlsClient · Group · StorageAdapter"]
     Facade --> N["Node target<br/>sync · nodejs wasm build"]
     Facade --> W["Web target<br/>async init() · browser wasm build"]
     Facade --> R["React Native target<br/>async · hidden WebView + bridge"]

@@ -1,6 +1,6 @@
-# mls4rn — Web (React) demo
+# mls-ts — Web (React) demo
 
-A live, in-browser encrypted group chat built on the `mls4rn` SDK (OpenMLS via WebAssembly). Type a message as any member; it's encrypted with the group key, and only members can decrypt it. The "on the wire" panel shows the actual ciphertext a server would see.
+A live, in-browser encrypted group chat built on the `mls-ts` SDK (OpenMLS via WebAssembly). Type a message as any member; it's encrypted with the group key, and only members can decrypt it. The "on the wire" panel shows the actual ciphertext a server would see.
 
 ## Run
 

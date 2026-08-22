@@ -1,9 +1,9 @@
-// mls4rn — a thin, typed TypeScript facade over OpenMLS (via openmls-wasm).
+// mls-ts — a thin, typed TypeScript facade over OpenMLS (via openmls-wasm).
 //
 // Primary API: create an `MlsClient` per participant, then create/join a
 // `Group` and send/receive encrypted messages.
 //
-//   import { MlsClient } from "mls4rn";
+//   import { MlsClient } from "mls-ts";
 //
 //   const alice = new MlsClient("alice");
 //   const bob = new MlsClient("bob");

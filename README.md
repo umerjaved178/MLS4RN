@@ -1,20 +1,16 @@
-# MLS4RN
+# mls-ts
 
-OpenMLS for TypeScript: MLS group messaging primitives for web, Node.js, and React Native integration.
+**End-to-end encrypted group messaging for JavaScript and TypeScript.**
 
-## Status
+`mls-ts` adds secure group chat to your Node.js and web apps. It implements **MLS** — Messaging Layer Security, the IETF standard ([RFC 9420](https://www.rfc-editor.org/rfc/rfc9420.html)) for end-to-end encrypted group messaging, with forward secrecy and post-compromise security — behind a small, typed API: create an `MlsClient`, form a `Group`, and send and receive encrypted messages. The cryptography runs on the endpoints, so a server only ever sees ciphertext.
 
-Early prototype. A thin, typed TypeScript facade over the [`openmls-wasm`](./openmls/openmls-wasm) bindings, with three integration targets:
+- **Node.js** — synchronous API, ready to use.
+- **Browser** — the same API, loaded via WebAssembly (see [`examples/web`](./examples/web)).
+- **React Native** — use the companion package [`mls4rn`](./packages/react-native) (see [`examples/react-native`](./examples/react-native)).
 
-- **Node.js** — synchronous, using the bundled Node WebAssembly build (this package).
-- **Web** — asynchronous, using the browser WebAssembly build (selected via the package `browser` field; see [`examples/web`](./examples/web)).
-- **React Native** — asynchronous, running the web build inside a hidden WebView ([`mls4rn-react-native`](./packages/react-native); see [`examples/react-native`](./examples/react-native)).
+Same audited cryptography everywhere: `mls-ts` wraps [OpenMLS](https://github.com/openmls/openmls) — the Rust reference implementation of RFC 9420 — compiled to WebAssembly. No cryptography is reimplemented in JavaScript.
 
-The project is developed with support from Prototype Fund.
-
-## About
-
-MLS4RN aims to make Messaging Layer Security (MLS) group messaging primitives easier to use from TypeScript-based applications. Under the hood it wraps [OpenMLS](https://github.com/openmls/openmls) compiled to WebAssembly — no cryptography is reimplemented in JavaScript.
+> **Status:** functional prototype. The API is still evolving and it isn't hardened for production yet — see [Limitations](#limitations). Developed with support from Prototype Fund.
 
 ## Goals
 
@@ -26,7 +22,7 @@ MLS4RN aims to make Messaging Layer Security (MLS) group messaging primitives ea
 ## Installation
 
 ```bash
-npm install mls4rn
+npm install mls-ts
 ```
 
 The compiled WebAssembly is bundled with the package, so no Rust toolchain is required to *use* it.
@@ -36,7 +32,7 @@ The compiled WebAssembly is bundled with the package, so no Rust toolchain is re
 Each participant is an `MlsClient` that owns its own in-memory key material. Create or join a `Group`, then send and receive end-to-end encrypted messages.
 
 ```ts
-import { MlsClient } from "mls4rn";
+import { MlsClient } from "mls-ts";
 
 // Two participants (each models a separate device).
 const alice = new MlsClient("alice");
@@ -91,7 +87,7 @@ Transporting these between processes/devices is up to your application — every
 By default a client is in-memory and forgets everything when the process exits. For persistence across restarts, open a client with a `StorageAdapter` and `save()` after operations you want to keep:
 
 ```ts
-import { MlsClient, FileStorageAdapter } from "mls4rn";
+import { MlsClient, FileStorageAdapter } from "mls-ts";
 
 const adapter = new FileStorageAdapter("./data");
 
@@ -153,7 +149,7 @@ npm run build:wasm # regenerate wasm/ from the vendored Rust source (needs Rust 
 
 This is a prototype. Current known constraints:
 
-- **Async on web and React Native** — the Node target is synchronous; the browser target loads WebAssembly via `init()`, and React Native additionally round-trips through a hidden WebView bridge (Hermes has no WebAssembly runtime). See [`mls4rn-react-native`](./packages/react-native) for its specific constraints.
+- **Async on web and React Native** — the Node target is synchronous; the browser target loads WebAssembly via `init()`, and React Native additionally round-trips through a hidden WebView bridge (Hermes has no WebAssembly runtime). See [`mls4rn`](./packages/react-native) for its specific constraints.
 - **Persistence is opt-in and coarse** — without an adapter, clients are in-memory and forget everything on exit. With a `StorageAdapter`, `save()` writes a **full snapshot** of the client's storage each time (simple, not incremental), and snapshots hold private keys **unencrypted at rest** unless your adapter encrypts them. Only a Node file adapter ships.
 - **Single fixed ciphersuite** — `MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519`.
 - **Rough edges** — malformed input to `receive()` currently surfaces as a thrown wasm error rather than a clean typed error.
