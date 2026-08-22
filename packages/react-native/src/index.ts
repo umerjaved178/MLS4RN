@@ -1,4 +1,4 @@
-// mls4rn-react-native — React Native support for mls4rn, running the SDK inside
+// mls4rn — React Native support for mls-ts, running the SDK inside
 // a hidden WebView and talking to it over a postMessage bridge.
 //
 // This entry exports the transport-agnostic core. The React Native WebView

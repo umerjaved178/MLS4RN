@@ -1,9 +1,16 @@
 {
-  "name": "mls4rn-react-native",
-  "version": "0.1.0",
-  "description": "React Native support for mls4rn (OpenMLS) — runs the web build inside a hidden WebView",
+  "name": "mls4rn",
+  "version": "0.2.0",
+  "description": "End-to-end encrypted group messaging for React Native, using the MLS protocol (RFC 9420).",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/umerjaved178/MLS4RN.git",
+    "directory": "packages/react-native"
+  },
+  "homepage": "https://github.com/umerjaved178/MLS4RN/tree/main/packages/react-native#readme",
+  "bugs": "https://github.com/umerjaved178/MLS4RN/issues",
   "main": "./src/index.ts",
   "react-native": "./src/native.tsx",
   "types": "./dist/native.d.ts",
@@ -30,7 +37,7 @@
   },
   "devDependencies": {
     "@types/react": "~18.3.12",
-    "mls4rn": "file:../..",
+    "mls-ts": "file:../..",
     "react": "18.3.1",
     "react-native": "0.76.9",
     "react-native-webview": "13.12.5",

@@ -1,4 +1,4 @@
-// Presentation demo for mls4rn — encrypted FILE SHARING.
+// Presentation demo for mls-ts — encrypted FILE SHARING.
 //
 // Shows the pattern real apps use for files: derive a per-file key from the MLS
 // group (exportKey), encrypt the file, and upload only the ciphertext to an
@@ -73,12 +73,12 @@ function decryptFile(key: Uint8Array, blob: Blob): Uint8Array {
 const sha256 = (data: Uint8Array): string => createHash("sha256").update(data).digest("hex");
 
 // A per-file key every member can derive identically from the group.
-const FILE_LABEL = "mls4rn/file-share/v1";
+const FILE_LABEL = "mls-ts/file-share/v1";
 const fileKeyFor = (group: { exportKey: (l: string, c: Uint8Array, n: number) => Uint8Array }, fileId: string): Uint8Array =>
   group.exportKey(FILE_LABEL, encodeUtf8(fileId), 32);
 
 async function main(): Promise<void> {
-  console.log(bold("\n📎  mls4rn — end-to-end encrypted file sharing"));
+  console.log(bold("\n📎  mls-ts — end-to-end encrypted file sharing"));
   console.log(dim("    a file, encrypted for the group, stored on a server that can't read it"));
   if (interactive) console.log(dim("    press Enter to advance each step  (FAST=1 to autoplay)"));
   await beat();

@@ -1,6 +1,6 @@
 # mls4rn — React Native demo (Expo)
 
-A minimal Expo app that runs **real OpenMLS in React Native** via `mls4rn-react-native` — which hosts the SDK inside a hidden WebView. Two clients (alice, bob) form a group; you type a message as alice and watch bob decrypt it, with the ciphertext shown "on the wire."
+A minimal Expo app that runs **real OpenMLS in React Native** via `mls4rn` — which hosts the SDK inside a hidden WebView. Two clients (alice, bob) form a group; you type a message as alice and watch bob decrypt it, with the ciphertext shown "on the wire."
 
 ## Prerequisites
 
@@ -31,4 +31,4 @@ Type a message as alice and tap **Send** — you should see bob decrypt it, and 
 
 - **Nothing runs on a server** — the whole group and all the crypto run on-device (the crypto inside a hidden WebView).
 - `react-native-webview` is a native module. If Expo Go doesn't load it, use a dev build (`npx expo run:ios` / `run:android`).
-- This is a monorepo consuming a linked package that ships source; `metro.config.js` watches the repo root. If Metro can't resolve `mls4rn-react-native`, that config is the place to adjust.
+- This is a monorepo consuming a linked package that ships source; `metro.config.js` watches the repo root. If Metro can't resolve `mls4rn`, that config is the place to adjust.

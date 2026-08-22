@@ -1,4 +1,4 @@
-// Presentation demo for mls4rn — a narrated, paced terminal "chat" showing
+// Presentation demo for mls-ts — a narrated, paced terminal "chat" showing
 // end-to-end encrypted group messaging with OpenMLS: the ciphertext on the
 // wire, only members decrypting it, and a session surviving a restart.
 //
@@ -52,12 +52,12 @@ function must<T>(value: T | undefined, message: string): T {
 }
 
 async function main(): Promise<void> {
-  console.log(bold("\n🔐  mls4rn — end-to-end encrypted group messaging"));
+  console.log(bold("\n🔐  mls-ts — end-to-end encrypted group messaging"));
   console.log(dim("    OpenMLS (Messaging Layer Security) via WebAssembly · live demo"));
   if (interactive) console.log(dim("    press Enter to advance each step  (FAST=1 to autoplay)"));
   await beat();
 
-  const dir = await mkdtemp(join(tmpdir(), "mls4rn-demo-"));
+  const dir = await mkdtemp(join(tmpdir(), "mls-ts-demo-"));
   const adapter = new FileStorageAdapter(dir);
   const room = "product-team";
 

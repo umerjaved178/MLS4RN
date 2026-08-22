@@ -8,7 +8,7 @@ let dir: string;
 let adapter: FileStorageAdapter;
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), "mls4rn-persist-"));
+  dir = await mkdtemp(join(tmpdir(), "mls-ts-persist-"));
   adapter = new FileStorageAdapter(dir);
 });
 

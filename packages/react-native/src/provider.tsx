@@ -1,5 +1,5 @@
 // The React Native glue: a provider that renders a hidden WebView running the
-// mls4rn host bundle and exposes an async Mls instance via context. This module
+// mls-ts host bundle and exposes an async Mls instance via context. This module
 // requires the RN toolchain (react, react-native-webview) — it is the
 // "react-native" entry, kept out of the transport-agnostic core.
 
@@ -12,7 +12,7 @@ import { HOST_HTML } from "./host-html";
 const MlsContext = createContext<Mls | null>(null);
 
 /**
- * Renders a hidden WebView that runs mls4rn and provides an {@link Mls} instance
+ * Renders a hidden WebView that runs mls-ts and provides an {@link Mls} instance
  * to descendants (see {@link useMls}). Wrap the part of your app that needs MLS.
  * Requires `react-native-webview`.
  */

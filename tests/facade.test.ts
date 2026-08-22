@@ -11,7 +11,7 @@ function aliceAndBob() {
   return { alice, bob, aliceGroup, bobGroup };
 }
 
-describe("mls4rn facade", () => {
+describe("mls-ts facade", () => {
   it("a joined member decrypts a sender's application message", () => {
     const { aliceGroup, bobGroup } = aliceAndBob();
     const ciphertext = aliceGroup.send("hello bob");

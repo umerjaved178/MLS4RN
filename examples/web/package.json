@@ -1,5 +1,5 @@
 {
-  "name": "mls4rn-web-demo",
+  "name": "mls-ts-web-demo",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "mls4rn": "file:../..",
+    "mls-ts": "file:../..",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

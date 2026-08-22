@@ -58,7 +58,7 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
   #dbPromise: Promise<IDBDatabase> | undefined;
 
   constructor(options: { dbName?: string; storeName?: string } = {}) {
-    this.#dbName = options.dbName ?? "mls4rn";
+    this.#dbName = options.dbName ?? "mls-ts";
     this.#storeName = options.storeName ?? "snapshots";
   }
 
