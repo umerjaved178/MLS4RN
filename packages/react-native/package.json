@@ -1,8 +1,7 @@
 {
   "name": "mls4rn-react-native",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "React Native support for mls4rn (OpenMLS) — runs the web build inside a hidden WebView",
-  "private": true,
   "type": "module",
   "license": "MIT",
   "main": "./src/index.ts",
