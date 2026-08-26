@@ -2,11 +2,11 @@ mod utils;
 
 use js_sys::Uint8Array;
 use openmls::{
-    credentials::{BasicCredential, CredentialWithKey},
+    credentials::{BasicCredential, Credential, CredentialWithKey},
     framing::{MlsMessageBodyIn, MlsMessageIn, MlsMessageOut},
     group::{GroupId, MlsGroup, MlsGroupJoinConfig, StagedWelcome},
     key_packages::KeyPackage as OpenMlsKeyPackage,
-    prelude::SignatureScheme,
+    prelude::{LeafNodeParameters, SignatureScheme},
     treesync::RatchetTreeIn,
 };
 use openmls_basic_credential::SignatureKeyPair;
@@ -173,6 +173,51 @@ impl AddMessages {
     }
 }
 
+/// Messages produced by a commit that is not an add: remove, update, leave, or a
+/// batched commit of pending proposals. `proposal` is empty when the commit was
+/// created directly from pending proposals (e.g. committing a received leave).
+/// `welcome` is empty unless the batch also added members.
+#[wasm_bindgen]
+pub struct CommitResult {
+    proposal: Uint8Array,
+    commit: Uint8Array,
+    welcome: Uint8Array,
+}
+
+impl CommitResult {
+    fn new(
+        proposal: Option<&MlsMessageOut>,
+        commit: &MlsMessageOut,
+        welcome: Option<&MlsMessageOut>,
+    ) -> CommitResult {
+        CommitResult {
+            proposal: proposal
+                .map(mls_message_to_uint8array)
+                .unwrap_or_else(empty_uint8array),
+            commit: mls_message_to_uint8array(commit),
+            welcome: welcome
+                .map(mls_message_to_uint8array)
+                .unwrap_or_else(empty_uint8array),
+        }
+    }
+}
+
+#[wasm_bindgen]
+impl CommitResult {
+    #[wasm_bindgen(getter)]
+    pub fn proposal(&self) -> Uint8Array {
+        self.proposal.clone()
+    }
+    #[wasm_bindgen(getter)]
+    pub fn commit(&self) -> Uint8Array {
+        self.commit.clone()
+    }
+    #[wasm_bindgen(getter)]
+    pub fn welcome(&self) -> Uint8Array {
+        self.welcome.clone()
+    }
+}
+
 #[wasm_bindgen]
 impl Group {
     pub fn create_new(provider: &Provider, founder: &Identity, group_id: &str) -> Group {
@@ -321,6 +366,141 @@ impl Group {
         }
     }
 
+    /// Remove a member, identified by its credential identity (the `name` it was
+    /// created with). Produces a proposal + commit to distribute to the other
+    /// members; the committer must then call [`Group::merge_pending_commit`].
+    pub fn propose_and_commit_remove(
+        &mut self,
+        provider: &Provider,
+        sender: &Identity,
+        removed: &str,
+    ) -> Result<CommitResult, JsError> {
+        let credential: Credential = BasicCredential::new(removed.bytes().collect()).into();
+        let (proposal_msg, _proposal_ref) = self.mls_group.propose_remove_member_by_credential(
+            provider.as_ref(),
+            &sender.keypair,
+            &credential,
+        )?;
+        let (commit_msg, welcome_msg, _group_info) = self
+            .mls_group
+            .commit_to_pending_proposals(provider.as_ref(), &sender.keypair)?;
+        Ok(CommitResult::new(
+            Some(&proposal_msg),
+            &commit_msg,
+            welcome_msg.as_ref(),
+        ))
+    }
+
+    /// Rotate this member's own leaf key (an Update proposal). This is what
+    /// delivers post-compromise security. Produces a proposal + commit; the
+    /// committer must then merge.
+    pub fn propose_and_commit_update(
+        &mut self,
+        provider: &Provider,
+        sender: &Identity,
+    ) -> Result<CommitResult, JsError> {
+        let (proposal_msg, _proposal_ref) = self.mls_group.propose_self_update(
+            provider.as_ref(),
+            &sender.keypair,
+            LeafNodeParameters::default(),
+        )?;
+        let (commit_msg, welcome_msg, _group_info) = self
+            .mls_group
+            .commit_to_pending_proposals(provider.as_ref(), &sender.keypair)?;
+        Ok(CommitResult::new(
+            Some(&proposal_msg),
+            &commit_msg,
+            welcome_msg.as_ref(),
+        ))
+    }
+
+    /// Stage an add proposal without committing (for batching several changes
+    /// into one commit). Returns the proposal to distribute.
+    pub fn propose_add(
+        &mut self,
+        provider: &Provider,
+        sender: &Identity,
+        new_member: &KeyPackage,
+    ) -> Result<Uint8Array, JsError> {
+        let (msg, _proposal_ref) =
+            self.mls_group
+                .propose_add_member(provider.as_ref(), &sender.keypair, &new_member.0)?;
+        Ok(mls_message_to_uint8array(&msg))
+    }
+
+    /// Stage a remove proposal without committing (for batching). Returns the
+    /// proposal to distribute.
+    pub fn propose_remove(
+        &mut self,
+        provider: &Provider,
+        sender: &Identity,
+        removed: &str,
+    ) -> Result<Uint8Array, JsError> {
+        let credential: Credential = BasicCredential::new(removed.bytes().collect()).into();
+        let (msg, _proposal_ref) = self.mls_group.propose_remove_member_by_credential(
+            provider.as_ref(),
+            &sender.keypair,
+            &credential,
+        )?;
+        Ok(mls_message_to_uint8array(&msg))
+    }
+
+    /// Stage a self-update proposal without committing (for batching).
+    pub fn propose_update(
+        &mut self,
+        provider: &Provider,
+        sender: &Identity,
+    ) -> Result<Uint8Array, JsError> {
+        let (msg, _proposal_ref) = self.mls_group.propose_self_update(
+            provider.as_ref(),
+            &sender.keypair,
+            LeafNodeParameters::default(),
+        )?;
+        Ok(mls_message_to_uint8array(&msg))
+    }
+
+    /// Create a self-removal (leave) proposal. A member cannot commit its own
+    /// removal, so this returns only a proposal: another member commits it (via
+    /// [`Group::commit_pending`] after receiving it), which removes the leaver.
+    pub fn leave(&mut self, provider: &Provider, sender: &Identity) -> Result<Uint8Array, JsError> {
+        let msg = self
+            .mls_group
+            .leave_group(provider.as_ref(), &sender.keypair)?;
+        Ok(mls_message_to_uint8array(&msg))
+    }
+
+    /// Commit all currently pending proposals (staged locally or received from
+    /// others). Produces a commit, plus a welcome if any adds were pending. The
+    /// committer must then merge.
+    pub fn commit_pending(
+        &mut self,
+        provider: &Provider,
+        sender: &Identity,
+    ) -> Result<CommitResult, JsError> {
+        let (commit_msg, welcome_msg, _group_info) = self
+            .mls_group
+            .commit_to_pending_proposals(provider.as_ref(), &sender.keypair)?;
+        Ok(CommitResult::new(None, &commit_msg, welcome_msg.as_ref()))
+    }
+
+    /// Whether this member is still an active participant. Returns false once the
+    /// member has been removed or has left (after merging that commit).
+    pub fn is_active(&self) -> bool {
+        self.mls_group.is_active()
+    }
+
+    /// The identities (names) of the current group members.
+    pub fn members(&self) -> Vec<String> {
+        self.mls_group
+            .members()
+            .filter_map(|m| {
+                BasicCredential::try_from(m.credential)
+                    .ok()
+                    .map(|b| String::from_utf8_lossy(b.identity()).into_owned())
+            })
+            .collect()
+    }
+
     pub fn export_key(
         &self,
         provider: &Provider,
@@ -453,6 +633,10 @@ fn mls_message_to_uint8array(msg: &MlsMessageOut) -> Uint8Array {
     msg.tls_serialize(&mut serialized).unwrap();
 
     unsafe { Uint8Array::new(&Uint8Array::view(&serialized)) }
+}
+
+fn empty_uint8array() -> Uint8Array {
+    Uint8Array::new_with_length(0)
 }
 
 // Length-prefixed serialization of the provider's key-value store. Kept
