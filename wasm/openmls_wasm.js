@@ -42,6 +42,54 @@ class AddMessages {
 if (Symbol.dispose) AddMessages.prototype[Symbol.dispose] = AddMessages.prototype.free;
 exports.AddMessages = AddMessages;
 
+/**
+ * Messages produced by a commit that is not an add: remove, update, leave, or a
+ * batched commit of pending proposals. `proposal` is empty when the commit was
+ * created directly from pending proposals (e.g. committing a received leave).
+ * `welcome` is empty unless the batch also added members.
+ */
+class CommitResult {
+    static __wrap(ptr) {
+        const obj = Object.create(CommitResult.prototype);
+        obj.__wbg_ptr = ptr;
+        CommitResultFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        CommitResultFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_commitresult_free(ptr, 0);
+    }
+    /**
+     * @returns {Uint8Array}
+     */
+    get commit() {
+        const ret = wasm.commitresult_commit(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {Uint8Array}
+     */
+    get proposal() {
+        const ret = wasm.commitresult_proposal(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {Uint8Array}
+     */
+    get welcome() {
+        const ret = wasm.commitresult_welcome(this.__wbg_ptr);
+        return ret;
+    }
+}
+if (Symbol.dispose) CommitResult.prototype[Symbol.dispose] = CommitResult.prototype.free;
+exports.CommitResult = CommitResult;
+
 class Group {
     static __wrap(ptr) {
         const obj = Object.create(Group.prototype);
@@ -58,6 +106,23 @@ class Group {
     free() {
         const ptr = this.__destroy_into_raw();
         wasm.__wbg_group_free(ptr, 0);
+    }
+    /**
+     * Commit all currently pending proposals (staged locally or received from
+     * others). Produces a commit, plus a welcome if any adds were pending. The
+     * committer must then merge.
+     * @param {Provider} provider
+     * @param {Identity} sender
+     * @returns {CommitResult}
+     */
+    commit_pending(provider, sender) {
+        _assertClass(provider, Provider);
+        _assertClass(sender, Identity);
+        const ret = wasm.group_commit_pending(this.__wbg_ptr, provider.__wbg_ptr, sender.__wbg_ptr);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return CommitResult.__wrap(ret[0]);
     }
     /**
      * @param {Provider} provider
@@ -121,6 +186,15 @@ class Group {
         return RatchetTree.__wrap(ret);
     }
     /**
+     * Whether this member is still an active participant. Returns false once the
+     * member has been removed or has left (after merging that commit).
+     * @returns {boolean}
+     */
+    is_active() {
+        const ret = wasm.group_is_active(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
      * @param {Provider} provider
      * @param {Uint8Array} welcome
      * @param {RatchetTree} ratchet_tree
@@ -139,6 +213,23 @@ class Group {
         return Group.__wrap(ret[0]);
     }
     /**
+     * Create a self-removal (leave) proposal. A member cannot commit its own
+     * removal, so this returns only a proposal: another member commits it (via
+     * [`Group::commit_pending`] after receiving it), which removes the leaver.
+     * @param {Provider} provider
+     * @param {Identity} sender
+     * @returns {Uint8Array}
+     */
+    leave(provider, sender) {
+        _assertClass(provider, Provider);
+        _assertClass(sender, Identity);
+        const ret = wasm.group_leave(this.__wbg_ptr, provider.__wbg_ptr, sender.__wbg_ptr);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+    /**
      * Reload a group's state from a restored provider's storage, for resuming a
      * session after a restart. Errors if no such group is stored.
      * @param {Provider} provider
@@ -154,6 +245,16 @@ class Group {
             throw takeFromExternrefTable0(ret[1]);
         }
         return Group.__wrap(ret[0]);
+    }
+    /**
+     * The identities (names) of the current group members.
+     * @returns {string[]}
+     */
+    members() {
+        const ret = wasm.group_members(this.__wbg_ptr);
+        var v1 = getArrayJsValueFromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
     }
     /**
      * @param {Provider} provider
@@ -183,6 +284,24 @@ class Group {
         return v2;
     }
     /**
+     * Stage an add proposal without committing (for batching several changes
+     * into one commit). Returns the proposal to distribute.
+     * @param {Provider} provider
+     * @param {Identity} sender
+     * @param {KeyPackage} new_member
+     * @returns {Uint8Array}
+     */
+    propose_add(provider, sender, new_member) {
+        _assertClass(provider, Provider);
+        _assertClass(sender, Identity);
+        _assertClass(new_member, KeyPackage);
+        const ret = wasm.group_propose_add(this.__wbg_ptr, provider.__wbg_ptr, sender.__wbg_ptr, new_member.__wbg_ptr);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+    /**
      * @param {Provider} provider
      * @param {Identity} sender
      * @param {KeyPackage} new_member
@@ -197,6 +316,77 @@ class Group {
             throw takeFromExternrefTable0(ret[1]);
         }
         return AddMessages.__wrap(ret[0]);
+    }
+    /**
+     * Remove a member, identified by its credential identity (the `name` it was
+     * created with). Produces a proposal + commit to distribute to the other
+     * members; the committer must then call [`Group::merge_pending_commit`].
+     * @param {Provider} provider
+     * @param {Identity} sender
+     * @param {string} removed
+     * @returns {CommitResult}
+     */
+    propose_and_commit_remove(provider, sender, removed) {
+        _assertClass(provider, Provider);
+        _assertClass(sender, Identity);
+        const ptr0 = passStringToWasm0(removed, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.group_propose_and_commit_remove(this.__wbg_ptr, provider.__wbg_ptr, sender.__wbg_ptr, ptr0, len0);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return CommitResult.__wrap(ret[0]);
+    }
+    /**
+     * Rotate this member's own leaf key (an Update proposal). This is what
+     * delivers post-compromise security. Produces a proposal + commit; the
+     * committer must then merge.
+     * @param {Provider} provider
+     * @param {Identity} sender
+     * @returns {CommitResult}
+     */
+    propose_and_commit_update(provider, sender) {
+        _assertClass(provider, Provider);
+        _assertClass(sender, Identity);
+        const ret = wasm.group_propose_and_commit_update(this.__wbg_ptr, provider.__wbg_ptr, sender.__wbg_ptr);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return CommitResult.__wrap(ret[0]);
+    }
+    /**
+     * Stage a remove proposal without committing (for batching). Returns the
+     * proposal to distribute.
+     * @param {Provider} provider
+     * @param {Identity} sender
+     * @param {string} removed
+     * @returns {Uint8Array}
+     */
+    propose_remove(provider, sender, removed) {
+        _assertClass(provider, Provider);
+        _assertClass(sender, Identity);
+        const ptr0 = passStringToWasm0(removed, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.group_propose_remove(this.__wbg_ptr, provider.__wbg_ptr, sender.__wbg_ptr, ptr0, len0);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+    /**
+     * Stage a self-update proposal without committing (for batching).
+     * @param {Provider} provider
+     * @param {Identity} sender
+     * @returns {Uint8Array}
+     */
+    propose_update(provider, sender) {
+        _assertClass(provider, Provider);
+        _assertClass(sender, Identity);
+        const ret = wasm.group_propose_update(this.__wbg_ptr, provider.__wbg_ptr, sender.__wbg_ptr);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
     }
 }
 if (Symbol.dispose) Group.prototype[Symbol.dispose] = Group.prototype.free;
@@ -575,6 +765,9 @@ function __wbg_get_imports() {
 const AddMessagesFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_addmessages_free(ptr, 1));
+const CommitResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_commitresult_free(ptr, 1));
 const GroupFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_group_free(ptr, 1));
@@ -606,9 +799,28 @@ function _assertClass(instance, klass) {
     }
 }
 
+function getArrayJsValueFromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    const mem = getDataViewMemory0();
+    const result = [];
+    for (let i = ptr; i < ptr + 4 * len; i += 4) {
+        result.push(wasm.__wbindgen_externrefs.get(mem.getUint32(i, true)));
+    }
+    wasm.__externref_drop_slice(ptr, len);
+    return result;
+}
+
 function getArrayU8FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
+}
+
+let cachedDataViewMemory0 = null;
+function getDataViewMemory0() {
+    if (cachedDataViewMemory0 === null || cachedDataViewMemory0.buffer.detached === true || (cachedDataViewMemory0.buffer.detached === undefined && cachedDataViewMemory0.buffer !== wasm.memory.buffer)) {
+        cachedDataViewMemory0 = new DataView(wasm.memory.buffer);
+    }
+    return cachedDataViewMemory0;
 }
 
 function getStringFromWasm0(ptr, len) {
