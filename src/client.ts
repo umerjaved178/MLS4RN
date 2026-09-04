@@ -35,6 +35,23 @@ export interface AddResult {
 }
 
 /**
+ * The messages produced by a membership change other than an add (remove,
+ * update, leave, or a batched commit of pending proposals).
+ *
+ * - `commit` → give to **all other existing members** via {@link Group.receive}.
+ * - `proposal` → for the one-shot {@link Group.remove} / {@link Group.update}
+ *   helpers, distribute this to other members *before* the commit (they apply it,
+ *   then the commit). `null` when committing already-pending proposals.
+ * - `welcome` → set only when the commit also added members; give it, together
+ *   with {@link Group.exportRatchetTree}, to each new member.
+ */
+export interface Commit {
+  proposal: Uint8Array | null;
+  commit: Uint8Array;
+  welcome: Uint8Array | null;
+}
+
+/**
  * A single MLS participant. Owns its own `Provider` (key material + storage) and
  * `Identity` (credential + signing key). Model separate devices as separate
  * `MlsClient` instances.
@@ -159,6 +176,15 @@ export class MlsClient {
   }
 }
 
+// Convert a wasm CommitResult (empty Uint8Array = absent) into a Commit, and
+// release the wasm handle.
+function toCommit(r: wasm.CommitResult): Commit {
+  const nz = (a: Uint8Array): Uint8Array | null => (a.length === 0 ? null : a);
+  const out: Commit = { proposal: nz(r.proposal), commit: r.commit, welcome: nz(r.welcome) };
+  r.free();
+  return out;
+}
+
 /**
  * A handle to a group as seen by one {@link MlsClient}. Created via
  * {@link MlsClient.createGroup} or {@link MlsClient.joinGroup} — not directly.
@@ -191,6 +217,85 @@ export class Group {
       proposal: msgs.proposal,
       commit: msgs.commit,
     };
+  }
+
+  /**
+   * Remove a member by name (the identity it was created with). The change is
+   * committed and applied locally; distribute the returned {@link Commit} to the
+   * other members (proposal then commit). The removed member also processes them
+   * and becomes inactive.
+   */
+  remove(memberName: string): Commit {
+    const r = this.#inner.propose_and_commit_remove(this.#provider, this.#identity, memberName);
+    this.#inner.merge_pending_commit(this.#provider);
+    return toCommit(r);
+  }
+
+  /**
+   * Rotate this member's own leaf key (an MLS Update). This refreshes key
+   * material and is what provides post-compromise security. Committed and applied
+   * locally; distribute the returned {@link Commit} to the other members.
+   */
+  update(): Commit {
+    const r = this.#inner.propose_and_commit_update(this.#provider, this.#identity);
+    this.#inner.merge_pending_commit(this.#provider);
+    return toCommit(r);
+  }
+
+  /**
+   * Leave the group. Returns a self-removal proposal to distribute. A member
+   * cannot commit its own removal, so another member must {@link receive} this
+   * proposal and then {@link commit} it; this client is only removed once it
+   * receives that commit.
+   */
+  leave(): Uint8Array {
+    return this.#inner.leave(this.#provider, this.#identity);
+  }
+
+  /**
+   * Commit all currently pending proposals — ones staged locally with the
+   * `propose*` methods, or received from other members via {@link receive} (such
+   * as a {@link leave} proposal). Applied locally; distribute the returned
+   * {@link Commit} to the others. If any pending proposal was an add, the
+   * {@link Commit.welcome} is set — send it plus {@link exportRatchetTree} to the
+   * new members.
+   */
+  commit(): Commit {
+    const r = this.#inner.commit_pending(this.#provider, this.#identity);
+    this.#inner.merge_pending_commit(this.#provider);
+    return toCommit(r);
+  }
+
+  /**
+   * Stage an add proposal without committing, so several changes can be batched
+   * into a single {@link commit}. Returns the proposal to distribute.
+   */
+  proposeAdd(keyPackage: Uint8Array): Uint8Array {
+    const kp = wasm.KeyPackage.from_bytes(keyPackage);
+    return this.#inner.propose_add(this.#provider, this.#identity, kp);
+  }
+
+  /** Stage a remove proposal without committing (for batching). */
+  proposeRemove(memberName: string): Uint8Array {
+    return this.#inner.propose_remove(this.#provider, this.#identity, memberName);
+  }
+
+  /** Stage a self-update proposal without committing (for batching). */
+  proposeUpdate(): Uint8Array {
+    return this.#inner.propose_update(this.#provider, this.#identity);
+  }
+
+  /** The names of the current group members. */
+  members(): string[] {
+    return this.#inner.members();
+  }
+
+  /**
+   * Whether this client is still an active member. Returns false after it has
+   * been removed or has left, once it processes that commit.
+   */
+  active(): boolean {
+    return this.#inner.is_active();
   }
 
   /** Encrypt an application message for the group. */

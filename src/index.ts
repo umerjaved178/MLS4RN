@@ -14,7 +14,7 @@
 //   bobGroup.receiveText(ct); // => "hello bob"
 
 export { MlsClient, Group } from "./client.js";
-export type { AddResult } from "./client.js";
+export type { AddResult, Commit } from "./client.js";
 export { FileStorageAdapter, IndexedDBStorageAdapter } from "./storage.js";
 export type { StorageAdapter } from "./storage.js";
 export { encodeUtf8, decodeUtf8, toHex, fromHex } from "./bytes.js";
