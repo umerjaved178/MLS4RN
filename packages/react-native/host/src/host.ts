@@ -1,7 +1,7 @@
 // mls4rn WebView host: runs the real mls4rn SDK and exposes it to React Native
 // over the postMessage bridge. It never renders UI — it's a headless engine.
 
-import { MlsClient, init, type Group, type StorageAdapter } from "mls-ts";
+import { MlsClient, init, type Group, type Commit, type StorageAdapter } from "mls-ts";
 import { type BridgeRequest, type BridgeOutbound, bytesToBase64, base64ToBytes } from "./bridge.js";
 
 const clients = new Map<string, MlsClient>();
@@ -33,6 +33,13 @@ function group(handle: string): Group {
   if (!g) throw new Error(`unknown group handle: ${handle}`);
   return g;
 }
+
+// Encode a core Commit for the wire (bytes -> base64, null preserved).
+const commitB64 = (c: Commit) => ({
+  proposal: c.proposal ? bytesToBase64(c.proposal) : null,
+  commit: bytesToBase64(c.commit),
+  welcome: c.welcome ? bytesToBase64(c.welcome) : null,
+});
 
 type Args = Record<string, any>;
 
@@ -83,9 +90,22 @@ const methods: Record<string, (args: Args) => unknown | Promise<unknown>> = {
   },
   send: (a) => ({ ciphertext: bytesToBase64(group(a.group).send(a.text)) }),
   receiveText: (a) => ({ text: group(a.group).receiveText(base64ToBytes(a.ciphertext)) }),
+  receive: (a) => ({ bytes: bytesToBase64(group(a.group).receive(base64ToBytes(a.message))) }),
+  exportRatchetTree: (a) => ({ ratchetTree: bytesToBase64(group(a.group).exportRatchetTree()) }),
   exportKey: (a) => ({
     key: bytesToBase64(group(a.group).exportKey(a.label, base64ToBytes(a.context), a.length)),
   }),
+
+  // --- membership lifecycle: remove, update, leave, batched proposals ---------
+  remove: (a) => commitB64(group(a.group).remove(a.name)),
+  update: (a) => commitB64(group(a.group).update()),
+  leave: (a) => ({ proposal: bytesToBase64(group(a.group).leave()) }),
+  commit: (a) => commitB64(group(a.group).commit()),
+  proposeAdd: (a) => ({ proposal: bytesToBase64(group(a.group).proposeAdd(base64ToBytes(a.keyPackage))) }),
+  proposeRemove: (a) => ({ proposal: bytesToBase64(group(a.group).proposeRemove(a.name)) }),
+  proposeUpdate: (a) => ({ proposal: bytesToBase64(group(a.group).proposeUpdate()) }),
+  members: (a) => ({ members: group(a.group).members() }),
+  active: (a) => ({ active: group(a.group).active() }),
 
   // --- persistence: RN pulls/pushes the whole storage map as one snapshot ----
   snapshot: async () => {
