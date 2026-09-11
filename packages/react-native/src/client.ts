@@ -12,6 +12,31 @@ export interface AddResult {
   commit: Uint8Array;
 }
 
+/**
+ * Messages from a membership change other than an add (remove, update, leave, or
+ * a batched commit). Mirrors the core `mls-ts` `Commit`.
+ *
+ * - `commit` → give to all other members via {@link Group.receive}.
+ * - `proposal` → for the one-shot {@link Group.remove} / {@link Group.update}
+ *   helpers, distribute before the commit; `null` when committing pending ones.
+ * - `welcome` → set only when the commit also added members.
+ */
+export interface Commit {
+  proposal: Uint8Array | null;
+  commit: Uint8Array;
+  welcome: Uint8Array | null;
+}
+
+type CommitWire = { proposal: string | null; commit: string; welcome: string | null };
+
+function decodeCommit(r: CommitWire): Commit {
+  return {
+    proposal: r.proposal ? base64ToBytes(r.proposal) : null,
+    commit: base64ToBytes(r.commit),
+    welcome: r.welcome ? base64ToBytes(r.welcome) : null,
+  };
+}
+
 /** A key/value store for persistence — matches React Native's AsyncStorage. */
 export interface KeyValueStore {
   getItem(key: string): Promise<string | null>;
@@ -161,5 +186,84 @@ export class Group {
       length,
     });
     return base64ToBytes(key);
+  }
+
+  /** Serialize this group's ratchet tree (needed by joiners after a batched add). */
+  async exportRatchetTree(): Promise<Uint8Array> {
+    const { ratchetTree } = await this.#bridge.request<{ ratchetTree: string }>("exportRatchetTree", {
+      group: this.#handle,
+    });
+    return base64ToBytes(ratchetTree);
+  }
+
+  /** Process an incoming message; returns plaintext for app messages, empty for handshakes. */
+  async receive(message: Uint8Array): Promise<Uint8Array> {
+    const { bytes } = await this.#bridge.request<{ bytes: string }>("receive", {
+      group: this.#handle,
+      message: bytesToBase64(message),
+    });
+    return base64ToBytes(bytes);
+  }
+
+  /** Remove a member by name. Distribute the returned {@link Commit} to the others. */
+  async remove(memberName: string): Promise<Commit> {
+    return decodeCommit(
+      await this.#bridge.request<CommitWire>("remove", { group: this.#handle, name: memberName }),
+    );
+  }
+
+  /** Rotate this member's own leaf key (post-compromise security). */
+  async update(): Promise<Commit> {
+    return decodeCommit(await this.#bridge.request<CommitWire>("update", { group: this.#handle }));
+  }
+
+  /**
+   * Leave the group. Returns a self-removal proposal; another member must
+   * {@link receive} it and {@link commit} it.
+   */
+  async leave(): Promise<Uint8Array> {
+    const { proposal } = await this.#bridge.request<{ proposal: string }>("leave", { group: this.#handle });
+    return base64ToBytes(proposal);
+  }
+
+  /** Commit all pending proposals (staged locally or received). */
+  async commit(): Promise<Commit> {
+    return decodeCommit(await this.#bridge.request<CommitWire>("commit", { group: this.#handle }));
+  }
+
+  /** Stage an add proposal without committing (for batching). */
+  async proposeAdd(keyPackage: Uint8Array): Promise<Uint8Array> {
+    const { proposal } = await this.#bridge.request<{ proposal: string }>("proposeAdd", {
+      group: this.#handle,
+      keyPackage: bytesToBase64(keyPackage),
+    });
+    return base64ToBytes(proposal);
+  }
+
+  /** Stage a remove proposal without committing (for batching). */
+  async proposeRemove(memberName: string): Promise<Uint8Array> {
+    const { proposal } = await this.#bridge.request<{ proposal: string }>("proposeRemove", {
+      group: this.#handle,
+      name: memberName,
+    });
+    return base64ToBytes(proposal);
+  }
+
+  /** Stage a self-update proposal without committing (for batching). */
+  async proposeUpdate(): Promise<Uint8Array> {
+    const { proposal } = await this.#bridge.request<{ proposal: string }>("proposeUpdate", { group: this.#handle });
+    return base64ToBytes(proposal);
+  }
+
+  /** The names of the current group members. */
+  async members(): Promise<string[]> {
+    const { members } = await this.#bridge.request<{ members: string[] }>("members", { group: this.#handle });
+    return members;
+  }
+
+  /** Whether this client is still an active member (false after removal / leaving). */
+  async active(): Promise<boolean> {
+    const { active } = await this.#bridge.request<{ active: boolean }>("active", { group: this.#handle });
+    return active;
   }
 }
