@@ -17,6 +17,11 @@ function bridgeToRealMls(): Bridge {
   let seq = 0;
   const b64 = (u: Uint8Array) => Buffer.from(u).toString("base64");
   const unb64 = (s: string) => new Uint8Array(Buffer.from(s, "base64"));
+  const commitWire = (c: { proposal: Uint8Array | null; commit: Uint8Array; welcome: Uint8Array | null }) => ({
+    proposal: c.proposal ? b64(c.proposal) : null,
+    commit: b64(c.commit),
+    welcome: c.welcome ? b64(c.welcome) : null,
+  });
   const storageAdapter = {
     async load(key: string) {
       return store.get(key) ?? null;
@@ -70,6 +75,28 @@ function bridgeToRealMls(): Bridge {
         return { ciphertext: b64(groups.get(a.group)!.send(a.text)) };
       case "receiveText":
         return { text: groups.get(a.group)!.receiveText(unb64(a.ciphertext)) };
+      case "receive":
+        return { bytes: b64(groups.get(a.group)!.receive(unb64(a.message))) };
+      case "exportRatchetTree":
+        return { ratchetTree: b64(groups.get(a.group)!.exportRatchetTree()) };
+      case "remove":
+        return commitWire(groups.get(a.group)!.remove(a.name));
+      case "update":
+        return commitWire(groups.get(a.group)!.update());
+      case "leave":
+        return { proposal: b64(groups.get(a.group)!.leave()) };
+      case "commit":
+        return commitWire(groups.get(a.group)!.commit());
+      case "proposeAdd":
+        return { proposal: b64(groups.get(a.group)!.proposeAdd(unb64(a.keyPackage))) };
+      case "proposeRemove":
+        return { proposal: b64(groups.get(a.group)!.proposeRemove(a.name)) };
+      case "proposeUpdate":
+        return { proposal: b64(groups.get(a.group)!.proposeUpdate()) };
+      case "members":
+        return { members: groups.get(a.group)!.members() };
+      case "active":
+        return { active: groups.get(a.group)!.active() };
       case "snapshot": {
         for (const c of clients.values()) await c.save();
         const obj: Record<string, string> = {};
@@ -164,5 +191,80 @@ describe("react-native bridge + facade", () => {
     const alice = await mls.newClient("alice");
     const group = await alice.createGroup("room");
     await expect(group.add(new Uint8Array([1, 2, 3]))).rejects.toThrow();
+  });
+
+  // A three-member group (alice, bob, charlie) built through the async facade.
+  async function abc3() {
+    const mls = new Mls(bridgeToRealMls());
+    await mls.ready();
+    const alice = await mls.newClient("alice");
+    const bob = await mls.newClient("bob");
+    const charlie = await mls.newClient("charlie");
+    const ag = await alice.createGroup("g");
+    const addB = await ag.add(await bob.keyPackage());
+    const bg = await bob.joinGroup(addB.welcome, addB.ratchetTree, "g");
+    const addC = await ag.add(await charlie.keyPackage());
+    await bg.receive(addC.proposal);
+    await bg.receive(addC.commit);
+    const cg = await charlie.joinGroup(addC.welcome, addC.ratchetTree, "g");
+    return { mls, ag, bg, cg };
+  }
+
+  it("removes a member through the facade", async () => {
+    const { ag, bg, cg } = await abc3();
+    const rm = await ag.remove("charlie");
+    await bg.receive(rm.proposal!);
+    await bg.receive(rm.commit);
+    await cg.receive(rm.proposal!);
+    await cg.receive(rm.commit);
+    expect(await cg.active()).toBe(false);
+    expect((await ag.members()).sort()).toEqual(["alice", "bob"]);
+    expect(await bg.receiveText(await ag.send("just us"))).toBe("just us");
+  });
+
+  it("updates (rekeys) through the facade", async () => {
+    const { ag, bg, cg } = await abc3();
+    const up = await bg.update();
+    await ag.receive(up.proposal!);
+    await ag.receive(up.commit);
+    await cg.receive(up.proposal!);
+    await cg.receive(up.commit);
+    expect(await ag.active()).toBe(true);
+    expect(await ag.receiveText(await cg.send("rekeyed"))).toBe("rekeyed");
+  });
+
+  it("leaves through the facade", async () => {
+    const { ag, bg, cg } = await abc3();
+    const proposal = await cg.leave();
+    await ag.receive(proposal);
+    const c = await ag.commit();
+    await bg.receive(proposal);
+    await bg.receive(c.commit);
+    await cg.receive(c.commit);
+    expect(await cg.active()).toBe(false);
+    expect((await ag.members()).sort()).toEqual(["alice", "bob"]);
+  });
+
+  it("batches add + remove in one commit through the facade", async () => {
+    const { mls, ag, bg, cg } = await abc3();
+    const dave = await mls.newClient("dave");
+    const pAdd = await ag.proposeAdd(await dave.keyPackage());
+    const pRemove = await ag.proposeRemove("bob");
+    const c = await ag.commit();
+    expect(c.welcome).not.toBeNull();
+
+    await cg.receive(pAdd);
+    await cg.receive(pRemove);
+    await cg.receive(c.commit);
+    await bg.receive(pAdd);
+    await bg.receive(pRemove);
+    await bg.receive(c.commit);
+    expect(await bg.active()).toBe(false);
+
+    const daveGroup = await dave.joinGroup(c.welcome!, await ag.exportRatchetTree(), "g");
+    expect((await ag.members()).sort()).toEqual(["alice", "charlie", "dave"]);
+    const ct = await ag.send("batched");
+    expect(await cg.receiveText(ct)).toBe("batched");
+    expect(await daveGroup.receiveText(ct)).toBe("batched");
   });
 });
