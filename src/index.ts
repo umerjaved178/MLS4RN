@@ -15,6 +15,15 @@
 
 export { MlsClient, Group } from "./client.js";
 export type { AddResult, Commit } from "./client.js";
+export {
+  MlsError,
+  InvalidArgumentError,
+  InvalidKeyPackageError,
+  InvalidWelcomeError,
+  InvalidMessageError,
+  GroupOperationError,
+  SnapshotError,
+} from "./errors.js";
 export { FileStorageAdapter, IndexedDBStorageAdapter } from "./storage.js";
 export type { StorageAdapter } from "./storage.js";
 export { encodeUtf8, decodeUtf8, toHex, fromHex } from "./bytes.js";

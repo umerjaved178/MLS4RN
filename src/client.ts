@@ -18,6 +18,17 @@
 import * as wasm from "./wasm.js";
 import { encodeUtf8, decodeUtf8 } from "./bytes.js";
 import type { StorageAdapter } from "./storage.js";
+import {
+  GroupOperationError,
+  InvalidArgumentError,
+  InvalidKeyPackageError,
+  InvalidMessageError,
+  InvalidWelcomeError,
+  SnapshotError,
+  requireBytes,
+  requireName,
+  wasmCall,
+} from "./errors.js";
 
 /**
  * The messages produced when a member is added to a group, ready to distribute.
@@ -95,12 +106,17 @@ export class MlsClient {
     client.#provider.free();
     client.#identity.free();
     const env = decodeEnvelope(blob);
-    client.#provider = wasm.Provider.from_bytes(env.provider);
-    client.#identity = wasm.Identity.from_bytes(id, env.identity);
-    for (const groupId of env.groupIds) {
-      const inner = wasm.Group.load(client.#provider, groupId);
-      client.#groups.set(groupId, client.#makeGroup(inner));
-    }
+    wasmCall(
+      () => {
+        client.#provider = wasm.Provider.from_bytes(env.provider);
+        client.#identity = wasm.Identity.from_bytes(id, env.identity);
+        for (const groupId of env.groupIds) {
+          const inner = wasm.Group.load(client.#provider, groupId);
+          client.#groups.set(groupId, client.#makeGroup(inner));
+        }
+      },
+      (cause) => new SnapshotError(`failed to restore client "${id}" from its snapshot`, { cause }),
+    );
     return client;
   }
 
@@ -114,7 +130,11 @@ export class MlsClient {
 
   /** Create a brand-new group with this client as the founding member. */
   createGroup(groupId: string): Group {
-    const inner = wasm.Group.create_new(this.#provider, this.#identity, groupId);
+    requireName(groupId, "groupId");
+    const inner = wasmCall(
+      () => wasm.Group.create_new(this.#provider, this.#identity, groupId),
+      (cause) => new GroupOperationError(`failed to create group "${groupId}"`, { cause }),
+    );
     const group = this.#makeGroup(inner);
     this.#groups.set(groupId, group);
     return group;
@@ -126,8 +146,15 @@ export class MlsClient {
    * the joined group reloadable after a restart when persistence is enabled.
    */
   joinGroup(welcome: Uint8Array, ratchetTree: Uint8Array, groupId?: string): Group {
-    const tree = wasm.RatchetTree.from_bytes(ratchetTree);
-    const inner = wasm.Group.join(this.#provider, welcome, tree);
+    requireBytes(welcome, "welcome");
+    requireBytes(ratchetTree, "ratchetTree");
+    const inner = wasmCall(
+      () => {
+        const tree = wasm.RatchetTree.from_bytes(ratchetTree);
+        return wasm.Group.join(this.#provider, welcome, tree);
+      },
+      (cause) => new InvalidWelcomeError("failed to join from the welcome and ratchet tree", { cause }),
+    );
     const group = this.#makeGroup(inner);
     if (groupId !== undefined) this.#groups.set(groupId, group);
     return group;
@@ -207,10 +234,20 @@ export class Group {
    * distribute to the new member and to any other existing members.
    */
   add(keyPackage: Uint8Array): AddResult {
-    const kp = wasm.KeyPackage.from_bytes(keyPackage);
-    const msgs = this.#inner.propose_and_commit_add(this.#provider, this.#identity, kp);
-    // Committer applies its own commit so its state advances to the new epoch.
-    this.#inner.merge_pending_commit(this.#provider);
+    requireBytes(keyPackage, "keyPackage");
+    const kp = wasmCall(
+      () => wasm.KeyPackage.from_bytes(keyPackage),
+      (cause) => new InvalidKeyPackageError("keyPackage is not a valid serialized KeyPackage", { cause }),
+    );
+    const msgs = wasmCall(
+      () => {
+        const r = this.#inner.propose_and_commit_add(this.#provider, this.#identity, kp);
+        // Committer applies its own commit so its state advances to the new epoch.
+        this.#inner.merge_pending_commit(this.#provider);
+        return r;
+      },
+      (cause) => new GroupOperationError("failed to add the member", { cause }),
+    );
     return {
       welcome: msgs.welcome,
       ratchetTree: this.exportRatchetTree(),
@@ -226,9 +263,15 @@ export class Group {
    * and becomes inactive.
    */
   remove(memberName: string): Commit {
-    const r = this.#inner.propose_and_commit_remove(this.#provider, this.#identity, memberName);
-    this.#inner.merge_pending_commit(this.#provider);
-    return toCommit(r);
+    requireName(memberName, "memberName");
+    return wasmCall(
+      () => {
+        const r = this.#inner.propose_and_commit_remove(this.#provider, this.#identity, memberName);
+        this.#inner.merge_pending_commit(this.#provider);
+        return toCommit(r);
+      },
+      (cause) => new GroupOperationError(`failed to remove "${memberName}"`, { cause }),
+    );
   }
 
   /**
@@ -237,9 +280,14 @@ export class Group {
    * locally; distribute the returned {@link Commit} to the other members.
    */
   update(): Commit {
-    const r = this.#inner.propose_and_commit_update(this.#provider, this.#identity);
-    this.#inner.merge_pending_commit(this.#provider);
-    return toCommit(r);
+    return wasmCall(
+      () => {
+        const r = this.#inner.propose_and_commit_update(this.#provider, this.#identity);
+        this.#inner.merge_pending_commit(this.#provider);
+        return toCommit(r);
+      },
+      (cause) => new GroupOperationError("failed to rotate this member's key", { cause }),
+    );
   }
 
   /**
@@ -249,7 +297,10 @@ export class Group {
    * receives that commit.
    */
   leave(): Uint8Array {
-    return this.#inner.leave(this.#provider, this.#identity);
+    return wasmCall(
+      () => this.#inner.leave(this.#provider, this.#identity),
+      (cause) => new GroupOperationError("failed to produce a leave proposal", { cause }),
+    );
   }
 
   /**
@@ -261,9 +312,14 @@ export class Group {
    * new members.
    */
   commit(): Commit {
-    const r = this.#inner.commit_pending(this.#provider, this.#identity);
-    this.#inner.merge_pending_commit(this.#provider);
-    return toCommit(r);
+    return wasmCall(
+      () => {
+        const r = this.#inner.commit_pending(this.#provider, this.#identity);
+        this.#inner.merge_pending_commit(this.#provider);
+        return toCommit(r);
+      },
+      (cause) => new GroupOperationError("failed to commit pending proposals", { cause }),
+    );
   }
 
   /**
@@ -271,18 +327,32 @@ export class Group {
    * into a single {@link commit}. Returns the proposal to distribute.
    */
   proposeAdd(keyPackage: Uint8Array): Uint8Array {
-    const kp = wasm.KeyPackage.from_bytes(keyPackage);
-    return this.#inner.propose_add(this.#provider, this.#identity, kp);
+    requireBytes(keyPackage, "keyPackage");
+    const kp = wasmCall(
+      () => wasm.KeyPackage.from_bytes(keyPackage),
+      (cause) => new InvalidKeyPackageError("keyPackage is not a valid serialized KeyPackage", { cause }),
+    );
+    return wasmCall(
+      () => this.#inner.propose_add(this.#provider, this.#identity, kp),
+      (cause) => new GroupOperationError("failed to stage an add proposal", { cause }),
+    );
   }
 
   /** Stage a remove proposal without committing (for batching). */
   proposeRemove(memberName: string): Uint8Array {
-    return this.#inner.propose_remove(this.#provider, this.#identity, memberName);
+    requireName(memberName, "memberName");
+    return wasmCall(
+      () => this.#inner.propose_remove(this.#provider, this.#identity, memberName),
+      (cause) => new GroupOperationError(`failed to stage a remove proposal for "${memberName}"`, { cause }),
+    );
   }
 
   /** Stage a self-update proposal without committing (for batching). */
   proposeUpdate(): Uint8Array {
-    return this.#inner.propose_update(this.#provider, this.#identity);
+    return wasmCall(
+      () => this.#inner.propose_update(this.#provider, this.#identity),
+      (cause) => new GroupOperationError("failed to stage an update proposal", { cause }),
+    );
   }
 
   /** The names of the current group members. */
@@ -300,8 +370,14 @@ export class Group {
 
   /** Encrypt an application message for the group. */
   send(message: string | Uint8Array): Uint8Array {
+    if (typeof message !== "string" && !(message instanceof Uint8Array)) {
+      throw new InvalidArgumentError("message must be a string or Uint8Array");
+    }
     const bytes = typeof message === "string" ? encodeUtf8(message) : message;
-    return this.#inner.create_message(this.#provider, this.#identity, bytes);
+    return wasmCall(
+      () => this.#inner.create_message(this.#provider, this.#identity, bytes),
+      (cause) => new GroupOperationError("failed to encrypt the message", { cause }),
+    );
   }
 
   /**
@@ -310,7 +386,11 @@ export class Group {
    * applied to this group's state and an empty array is returned.
    */
   receive(message: Uint8Array): Uint8Array {
-    return this.#inner.process_message(this.#provider, message);
+    requireBytes(message, "message");
+    return wasmCall(
+      () => this.#inner.process_message(this.#provider, message),
+      (cause) => new InvalidMessageError("could not process the incoming message (malformed or unexpected)", { cause }),
+    );
   }
 
   /**
@@ -332,7 +412,15 @@ export class Group {
    * with the same `label`, `context`, and `length` get identical bytes.
    */
   exportKey(label: string, context: Uint8Array, length: number): Uint8Array {
-    return this.#inner.export_key(this.#provider, label, context, length);
+    requireName(label, "label");
+    requireBytes(context, "context");
+    if (!Number.isInteger(length) || length <= 0) {
+      throw new InvalidArgumentError("length must be a positive integer");
+    }
+    return wasmCall(
+      () => this.#inner.export_key(this.#provider, label, context, length),
+      (cause) => new GroupOperationError("failed to derive an exported key", { cause }),
+    );
   }
 
   /** Release the underlying wasm handle. Optional; GC also reclaims it. */
@@ -385,14 +473,14 @@ function decodeEnvelope(bytes: Uint8Array): Envelope {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let pos = 0;
   const need = (n: number): void => {
-    if (pos + n > bytes.length) throw new Error("mls-ts: corrupt snapshot envelope");
+    if (pos + n > bytes.length) throw new SnapshotError("corrupt snapshot envelope");
   };
 
   need(1);
   const version = bytes[pos];
   pos += 1;
   if (version !== ENVELOPE_VERSION) {
-    throw new Error(`mls-ts: unsupported snapshot version ${version}`);
+    throw new SnapshotError(`unsupported snapshot version ${version}`);
   }
 
   const readU32 = (): number => {
