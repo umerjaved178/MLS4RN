@@ -5,6 +5,17 @@
 // MMKV (React Native) — by supplying a different adapter. Only the Node file
 // adapter ships today.
 
+import { SnapshotError } from "./errors.js";
+
+// Copy a view into a fresh ArrayBuffer-backed buffer. Web Crypto wants a
+// `BufferSource`, and a plain ArrayBuffer sidesteps the ArrayBufferLike /
+// SharedArrayBuffer typing on views returned by `subarray`.
+function toBuffer(u: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(u.length);
+  copy.set(u);
+  return copy.buffer;
+}
+
 /** A key/value blob store. Keys are client ids; values are opaque snapshots. */
 export interface StorageAdapter {
   /** Return the stored bytes for `key`, or `null` if nothing is stored. */
@@ -102,5 +113,138 @@ export class IndexedDBStorageAdapter implements StorageAdapter {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error ?? new Error("indexedDB: write failed"));
     });
+  }
+}
+
+/**
+ * Wraps another adapter and encrypts every snapshot at rest with AES-256-GCM.
+ *
+ * A snapshot holds the client's private keys, so without this the backing store
+ * (a file, IndexedDB, AsyncStorage) keeps them in the clear. This adapter
+ * derives a key from a passphrase with PBKDF2-SHA-256 and encrypts the bytes
+ * before they reach the inner adapter, so the inner store only ever sees
+ * ciphertext. Decryption with the wrong passphrase, or on tampered bytes,
+ * throws a {@link SnapshotError}.
+ *
+ * It uses the Web Crypto API, which is available on Node (18+) and in browsers,
+ * so the one adapter wraps {@link FileStorageAdapter}, {@link IndexedDBStorageAdapter},
+ * or any other.
+ *
+ * ```ts
+ * const adapter = new EncryptedStorageAdapter(
+ *   new FileStorageAdapter("./data"),
+ *   process.env.MLS_PASSPHRASE!,
+ * );
+ * const client = await MlsClient.open("alice", adapter);
+ * ```
+ *
+ * The passphrase is yours to manage (an env var, the OS keychain, a prompt);
+ * it is never stored. A high-entropy value gives the strongest protection; a
+ * raw key can be passed as bytes.
+ */
+export class EncryptedStorageAdapter implements StorageAdapter {
+  // On-disk layout: version(1) | salt(16) | iv(12) | ciphertext+tag.
+  static readonly #VERSION = 1;
+  static readonly #SALT_LEN = 16;
+  static readonly #IV_LEN = 12;
+
+  readonly #inner: StorageAdapter;
+  readonly #passphrase: Uint8Array;
+  readonly #iterations: number;
+  #baseKey: Promise<CryptoKey> | undefined;
+
+  /**
+   * @param inner       the adapter that stores the (now encrypted) bytes
+   * @param passphrase  the secret to derive the encryption key from
+   * @param options.iterations  PBKDF2 iteration count (default 210_000)
+   */
+  constructor(
+    inner: StorageAdapter,
+    passphrase: string | Uint8Array,
+    options: { iterations?: number } = {},
+  ) {
+    if (passphrase == null || passphrase.length === 0) {
+      throw new SnapshotError("EncryptedStorageAdapter: passphrase must not be empty");
+    }
+    this.#inner = inner;
+    this.#passphrase =
+      typeof passphrase === "string" ? new TextEncoder().encode(passphrase) : passphrase;
+    this.#iterations = options.iterations ?? 210_000;
+  }
+
+  #subtle(): SubtleCrypto {
+    const c = (globalThis as { crypto?: Crypto }).crypto;
+    if (!c?.subtle) {
+      throw new SnapshotError(
+        "EncryptedStorageAdapter: Web Crypto is unavailable in this runtime",
+      );
+    }
+    return c.subtle;
+  }
+
+  #random(length: number): Uint8Array {
+    const out = new Uint8Array(length);
+    (globalThis as { crypto: Crypto }).crypto.getRandomValues(out);
+    return out;
+  }
+
+  #importBaseKey(): Promise<CryptoKey> {
+    if (!this.#baseKey) {
+      this.#baseKey = this.#subtle().importKey("raw", toBuffer(this.#passphrase), "PBKDF2", false, [
+        "deriveKey",
+      ]);
+    }
+    return this.#baseKey;
+  }
+
+  async #deriveKey(salt: Uint8Array): Promise<CryptoKey> {
+    return this.#subtle().deriveKey(
+      { name: "PBKDF2", salt: toBuffer(salt), iterations: this.#iterations, hash: "SHA-256" },
+      await this.#importBaseKey(),
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"],
+    );
+  }
+
+  async save(key: string, data: Uint8Array): Promise<void> {
+    const salt = this.#random(EncryptedStorageAdapter.#SALT_LEN);
+    const iv = this.#random(EncryptedStorageAdapter.#IV_LEN);
+    const aesKey = await this.#deriveKey(salt);
+    const ct = new Uint8Array(
+      await this.#subtle().encrypt({ name: "AES-GCM", iv: toBuffer(iv) }, aesKey, toBuffer(data)),
+    );
+
+    const out = new Uint8Array(1 + salt.length + iv.length + ct.length);
+    out[0] = EncryptedStorageAdapter.#VERSION;
+    out.set(salt, 1);
+    out.set(iv, 1 + salt.length);
+    out.set(ct, 1 + salt.length + iv.length);
+    await this.#inner.save(key, out);
+  }
+
+  async load(key: string): Promise<Uint8Array | null> {
+    const blob = await this.#inner.load(key);
+    if (blob === null) return null;
+
+    const headerLen = 1 + EncryptedStorageAdapter.#SALT_LEN + EncryptedStorageAdapter.#IV_LEN;
+    if (blob.length < headerLen || blob[0] !== EncryptedStorageAdapter.#VERSION) {
+      throw new SnapshotError("EncryptedStorageAdapter: not an encrypted snapshot (bad header)");
+    }
+    const salt = blob.subarray(1, 1 + EncryptedStorageAdapter.#SALT_LEN);
+    const iv = blob.subarray(1 + EncryptedStorageAdapter.#SALT_LEN, headerLen);
+    const ct = blob.subarray(headerLen);
+
+    const aesKey = await this.#deriveKey(salt);
+    try {
+      return new Uint8Array(
+        await this.#subtle().decrypt({ name: "AES-GCM", iv: toBuffer(iv) }, aesKey, toBuffer(ct)),
+      );
+    } catch (cause) {
+      throw new SnapshotError(
+        "EncryptedStorageAdapter: could not decrypt the snapshot (wrong passphrase or tampered data)",
+        { cause },
+      );
+    }
   }
 }

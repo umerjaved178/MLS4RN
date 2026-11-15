@@ -24,7 +24,7 @@ export {
   GroupOperationError,
   SnapshotError,
 } from "./errors.js";
-export { FileStorageAdapter, IndexedDBStorageAdapter } from "./storage.js";
+export { FileStorageAdapter, IndexedDBStorageAdapter, EncryptedStorageAdapter } from "./storage.js";
 export type { StorageAdapter } from "./storage.js";
 export { encodeUtf8, decodeUtf8, toHex, fromHex } from "./bytes.js";
 
