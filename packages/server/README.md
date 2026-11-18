@@ -40,6 +40,22 @@ npm run build
 npm start          # http://localhost:3000  (set PORT to change)
 ```
 
+## Configuration
+
+All configuration is through environment variables. Everything is optional; with
+nothing set, the server runs in memory and unauthenticated (handy for the demo).
+
+| Variable | Effect |
+| --- | --- |
+| `PORT` | HTTP port (default `3000`). |
+| `MLS_DATA_DIR` | When set, each collection is persisted to a JSON file in this directory and reloaded on start, so state survives a restart. Unset means in-memory only. |
+| `MLS_API_TOKENS` | Comma-separated bearer tokens. When set, every HTTP request must send `Authorization: Bearer <token>` with one of them, or it is rejected with `401`. Unset disables auth (with a startup warning). |
+| `MLS_RATE_LIMIT` | Requests allowed per window, per client (default `300`). |
+| `MLS_RATE_TTL` | Rate-limit window in milliseconds (default `60000`). |
+
+Rate limiting and auth apply to the HTTP endpoints. The WebSocket gateway only
+fans out already-encrypted bytes and is left to relay.
+
 ## Test
 
 ```bash
@@ -53,7 +69,10 @@ message. It also covers ordering, the welcome inbox, and WebSocket push.
 
 ## Status
 
-Reference implementation. Storage is **in-memory** (state is lost on restart) and
-there is no authentication or rate limiting. It demonstrates the delivery-service
-contract; a production deployment would add durable storage, auth, and an
-authentication service for verifying member credentials.
+Reference implementation. It now has opt-in durable storage (`MLS_DATA_DIR`),
+bearer-token auth (`MLS_API_TOKENS`), and HTTP rate limiting, which make it far
+closer to deployable. The remaining production gaps are a real database in place
+of the JSON-file store, and an authentication service that ties a token to a
+verified identity so the server can confirm a caller owns the `userId` it
+publishes under. It still never parses or decrypts MLS payloads; that stays on
+the clients by design.
