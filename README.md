@@ -160,6 +160,8 @@ Contributions, questions, and feedback are welcome. Please read [CONTRIBUTING.md
 
 ## Security
 
+For what the project protects, who it protects against, and what it leaves to the integrating application, see the [threat model](./docs/threat-model.md).
+
 Please do not report security issues in public GitHub issues. See [SECURITY.md](./SECURITY.md) for the current reporting process.
 
 ## License
