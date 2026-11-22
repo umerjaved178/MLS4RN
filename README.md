@@ -1,171 +1,114 @@
-# mls-ts
+# MLS4RN
 
-**End-to-end encrypted group messaging for JavaScript and TypeScript.**
+**End-to-end encrypted group messaging for web, mobile, and backend apps.**
 
-`mls-ts` adds secure group chat to your Node.js and web apps. It implements **MLS** — Messaging Layer Security, the IETF standard ([RFC 9420](https://www.rfc-editor.org/rfc/rfc9420.html)) for end-to-end encrypted group messaging, with forward secrecy and post-compromise security — behind a small, typed API: create an `MlsClient`, form a `Group`, and send and receive encrypted messages. The cryptography runs on the endpoints, so a server only ever sees ciphertext.
+MLS4RN is a small, typed TypeScript SDK for secure group chat. You create a client for each participant, form a group, and send and receive messages. Everything is encrypted on the device, so any server in the middle only ever sees ciphertext.
 
-- **Node.js** — synchronous API, ready to use.
-- **Browser** — the same API, loaded via WebAssembly (see [`examples/web`](./examples/web)).
-- **React Native** — use the companion package [`mls4rn`](./packages/react-native) (see [`examples/react-native`](./examples/react-native)).
+It implements **MLS**, the IETF standard for end-to-end encrypted group messaging ([RFC 9420](https://www.rfc-editor.org/rfc/rfc9420.html)), with forward secrecy and post-compromise security. Under the hood it wraps [OpenMLS](https://github.com/openmls/openmls), the Rust reference implementation, compiled to WebAssembly. No cryptography is reimplemented in JavaScript.
 
-Same audited cryptography everywhere: `mls-ts` wraps [OpenMLS](https://github.com/openmls/openmls) — the Rust reference implementation of RFC 9420 — compiled to WebAssembly. No cryptography is reimplemented in JavaScript.
+[![npm: mls-ts](https://img.shields.io/npm/v/mls-ts?label=mls-ts)](https://www.npmjs.com/package/mls-ts)
+[![npm: mls4rn](https://img.shields.io/npm/v/mls4rn?label=mls4rn)](https://www.npmjs.com/package/mls4rn)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
-> **Status:** functional prototype. The API is still evolving and it isn't hardened for production yet — see [Limitations](#limitations). Developed with support from Prototype Fund.
+**[Documentation](https://mls4rn.dev/docs)** · **[Live demo](https://mls4rn.dev)** · **[Quickstart](https://mls4rn.dev/docs/guide/quickstart)**
 
-## Goals
+> **Status:** functional prototype. The API still changes between versions and it is not yet hardened for production. See [Limitations](https://mls4rn.dev/docs/guide/limitations). Developed with support from the Prototype Fund.
 
-- Provide a TypeScript-friendly interface for MLS group messaging primitives.
-- Support web, Node.js, and React Native integration paths.
-- Keep the project understandable for contributors who are new to MLS.
-- Maintain the project as free and open-source software.
+## Why MLS4RN
 
-## Installation
+- **Real cryptography.** The same audited OpenMLS core runs on every platform, via WebAssembly.
+- **One API, everywhere.** The same clients, groups, and messages on Node, browser, and React Native.
+- **Groups, not just one to one.** Add and remove members, rotate keys, leave, and batch changes, with forward secrecy and post-compromise security built in.
+- **The server stays blind.** All crypto happens on the device; a server only relays encrypted bytes.
+- **Encrypted file sharing.** Derive a per-file key from the group and store only ciphertext.
+
+## Packages
+
+| Package | Install for | API |
+| --- | --- | --- |
+| [`mls-ts`](https://www.npmjs.com/package/mls-ts) | Node.js and browser | Synchronous on Node, `await init()` once in the browser |
+| [`mls4rn`](https://www.npmjs.com/package/mls4rn) | React Native | `Promise`-based |
+
+Both share the same cryptography and concepts, so a Node client and a React Native client can be in the same group. See [why two packages](https://mls4rn.dev/docs/guide/faq#why-two-packages).
+
+## Quickstart
 
 ```bash
 npm install mls-ts
 ```
 
-The compiled WebAssembly is bundled with the package, so no Rust toolchain is required to *use* it.
-
-## Usage
-
-Each participant is an `MlsClient` that owns its own in-memory key material. Create or join a `Group`, then send and receive end-to-end encrypted messages.
+The compiled WebAssembly ships inside the package, so there is no Rust toolchain and no build step.
 
 ```ts
 import { MlsClient } from "mls-ts";
 
-// Two participants (each models a separate device).
+// Two participants. Each models a separate device.
 const alice = new MlsClient("alice");
 const bob = new MlsClient("bob");
 
-// Alice founds a group and adds Bob from his published key package.
+// Alice starts a group and adds Bob from his published key package.
 const group = alice.createGroup("chess-club");
 const add = group.add(bob.keyPackage());
 
-// Bob joins from the welcome + ratchet tree Alice produced.
+// Bob joins from the welcome and ratchet tree Alice produced.
 const bobGroup = bob.joinGroup(add.welcome, add.ratchetTree);
 
-// End-to-end encrypted application messages.
+// Send an end-to-end encrypted message.
 const ciphertext = group.send("hello bob");
 console.log(bobGroup.receiveText(ciphertext)); // => "hello bob"
 ```
 
-### Adding members and distributing messages
+Every value here is a plain `Uint8Array`, so you move the bytes between devices however your app already talks to a backend. In the browser, call `await init()` once before the first operation. In React Native, use `mls4rn` and `await` each call.
 
-`Group.add()` commits the change locally and returns everything you need to distribute:
+## Documentation
 
-| Field | Give it to | Via |
-| --- | --- | --- |
-| `welcome` + `ratchetTree` | the **new** member | `client.joinGroup(welcome, ratchetTree)` |
-| `proposal` then `commit` | **other existing** members | `group.receive(proposal)` then `group.receive(commit)` |
+Full guides and the API reference live at **[mls4rn.dev/docs](https://mls4rn.dev/docs)**:
 
-Transporting these between processes/devices is up to your application — every value is a plain `Uint8Array`.
+- [How it works](https://mls4rn.dev/docs/guide/how-it-works): the concepts behind the API
+- [Node.js](https://mls4rn.dev/docs/guide/nodejs), [Browser](https://mls4rn.dev/docs/guide/browser), [React Native](https://mls4rn.dev/docs/guide/react-native): per-platform setup
+- [Managing members](https://mls4rn.dev/docs/guide/members) and [Messages](https://mls4rn.dev/docs/guide/messages)
+- [File sharing](https://mls4rn.dev/docs/guide/file-sharing) and [Saving sessions](https://mls4rn.dev/docs/guide/persistence)
+- [API reference](https://mls4rn.dev/docs/reference/mls-ts)
 
-### API summary
+## Reference delivery server
 
-**`MlsClient`**
-- `new MlsClient(name)` — create an in-memory participant with its own provider + identity.
-- `MlsClient.open(id, adapter): Promise<MlsClient>` — open a **persistent** client, restoring a prior snapshot or starting fresh.
-- `save(): Promise<void>` — persist the current state (persistent clients only).
-- `keyPackage(): Uint8Array` — a serialized key package to publish so others can add you.
-- `createGroup(groupId): Group` — found a new group.
-- `joinGroup(welcome, ratchetTree, groupId?): Group` — join from an add's output; pass `groupId` to make it reloadable after a restart.
-- `group(groupId): Group | undefined` — get a group handle by id (e.g. after `open` restores it).
-
-**`Group`**
-- `add(keyPackage): { welcome, ratchetTree, proposal, commit }` — add a member (commits + applies locally).
-- `send(message: string | Uint8Array): Uint8Array` — encrypt an application message.
-- `receive(bytes): Uint8Array` — process a message; returns plaintext for application messages, empty for handshakes.
-- `receiveText(bytes): string | null` — like `receive`, decoded as UTF-8; `null` for handshakes.
-- `exportRatchetTree(): Uint8Array` — serialize the ratchet tree (for joiners).
-- `exportKey(label, context, length): Uint8Array` — derive an exported group secret.
-
-**Helpers:** `encodeUtf8`, `decodeUtf8`, `toHex`, `fromHex`. The raw generated bindings are also re-exported as `raw` for advanced use.
-
-### Persistence
-
-By default a client is in-memory and forgets everything when the process exits. For persistence across restarts, open a client with a `StorageAdapter` and `save()` after operations you want to keep:
-
-```ts
-import { MlsClient, FileStorageAdapter } from "mls-ts";
-
-const adapter = new FileStorageAdapter("./data");
-
-// session 1
-const alice = await MlsClient.open("alice", adapter);
-const group = alice.createGroup("room");
-// ... add members, send / receive ...
-await alice.save();
-
-// session 2 (after a restart): the same id + adapter restores the session
-const alice2 = await MlsClient.open("alice", adapter);
-const group2 = alice2.group("room"); // resumes where it left off
-```
-
-The `StorageAdapter` interface is a tiny async `load`/`save` key–value store, so you can target other platforms (IndexedDB on web, AsyncStorage on React Native) by supplying your own. Only the Node `FileStorageAdapter` ships today.
-
-## Demo
-
-A runnable, narrated three-party demo (alice, bob, charlie forming a group and exchanging messages):
-
-```bash
-npm run demo            # smoke demo (three parties form a group, exchange messages)
-npm run demo:present    # narrated encrypted group chat, with restart persistence
-npm run demo:files      # encrypted file sharing (per-file key derived from the group)
-```
-
-The browser and React Native demos live under [`examples/web`](./examples/web) and [`examples/react-native`](./examples/react-native). For a full demo runbook covering all three targets — talking points, exact commands, and a Q&A cheat sheet — see [**docs/presentation.md**](./docs/presentation.md).
-
-## Development
-
-The wrapper depends only on the prebuilt WebAssembly committed under [`wasm/`](./wasm). The OpenMLS Rust source is vendored under `openmls/` as committed build input, so the wasm can be rebuilt from a clean clone — see [openmls/VENDOR.md](./openmls/VENDOR.md). Only `npm run build:wasm` uses it, and only that step needs a Rust toolchain.
-
-```bash
-npm install        # install dev dependencies + link the local wasm package
-npm run typecheck  # type-check the source
-npm test           # run the vitest suite
-npm run build      # emit dist/ (JS + type declarations)
-npm run build:wasm # regenerate wasm/ from the vendored Rust source (needs Rust + wasm-pack)
-```
-
-## Repository structure
-
-```text
-.
-├── src/               # TypeScript facade (MlsClient, Group, helpers) + demo
-├── tests/             # vitest end-to-end tests
-├── wasm/              # committed openmls-wasm build artifact (bundled on publish)
-├── scripts/           # build-wasm.sh (regenerates wasm/)
-├── openmls/           # vendored OpenMLS Rust source (committed build input; see VENDOR.md)
-├── docs/              # project notes and documentation
-├── CONTRIBUTING.md    # contribution guidelines
-├── CODE_OF_CONDUCT.md # community expectations
-├── SECURITY.md        # security reporting policy
-├── LICENSE            # MIT License
-└── README.md          # project overview
-```
-
-## Limitations
-
-This is a prototype. Current known constraints:
-
-- **Async on web and React Native** — the Node target is synchronous; the browser target loads WebAssembly via `init()`, and React Native additionally round-trips through a hidden WebView bridge (Hermes has no WebAssembly runtime). See [`mls4rn`](./packages/react-native) for its specific constraints.
-- **Persistence is opt-in and coarse** — without an adapter, clients are in-memory and forget everything on exit. With a `StorageAdapter`, `save()` writes a **full snapshot** of the client's storage each time (simple, not incremental), and snapshots hold private keys **unencrypted at rest** unless your adapter encrypts them. Only a Node file adapter ships.
-- **Single fixed ciphersuite** — `MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519`.
-- **Rough edges** — malformed input to `receive()` currently surfaces as a thrown wasm error rather than a clean typed error.
-
-## Contributing
-
-Contributions, questions, and feedback are welcome. Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening issues or pull requests.
+MLS does the cryptography but not the delivery. This repo includes a reference server (`packages/server`, NestJS) that relays encrypted messages, holds key packages, and delivers welcomes, as a blind relay that never sees a key. It supports optional durable storage, bearer-token auth, and rate limiting. See [The delivery server](https://mls4rn.dev/docs/guide/delivery-server).
 
 ## Security
 
-For what the project protects, who it protects against, and what it leaves to the integrating application, see the [threat model](./docs/threat-model.md).
+For what the project protects, who it protects against, and what it leaves to your application, read the [threat model](./docs/threat-model.md) and the [security model](https://mls4rn.dev/docs/guide/security).
 
-Please do not report security issues in public GitHub issues. See [SECURITY.md](./SECURITY.md) for the current reporting process.
+Please do not report security issues in public GitHub issues. See [SECURITY.md](./SECURITY.md) for the reporting process.
+
+## Development
+
+The SDK depends only on the prebuilt WebAssembly under [`wasm/`](./wasm). The OpenMLS Rust source is vendored under `openmls/` so the wasm can be rebuilt from a clean clone (see [openmls/VENDOR.md](./openmls/VENDOR.md)); only `npm run build:wasm` needs a Rust toolchain.
+
+```bash
+npm install        # install dev dependencies
+npm run typecheck  # type-check the source
+npm test           # run the test suite
+npm run build      # emit dist/ (JS + type declarations)
+npm run demo       # a narrated three-party demo
+```
+
+Repository layout:
+
+```text
+src/                 TypeScript facade (MlsClient, Group, helpers)
+packages/react-native/   the mls4rn package (React Native)
+packages/server/     reference NestJS delivery server
+wasm/                prebuilt OpenMLS WebAssembly (bundled on publish)
+openmls/             vendored OpenMLS Rust source (build input)
+docs/                project notes and the threat model
+```
+
+## Contributing
+
+Contributions, questions, and feedback are welcome. Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening issues or pull requests, and note the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](./LICENSE).
+MIT, see [LICENSE](./LICENSE). It builds on [OpenMLS](https://github.com/openmls/openmls) (also MIT), whose compiled WebAssembly is bundled with the package. Third-party licenses are reproduced in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
-It builds on [OpenMLS](https://github.com/openmls/openmls) (also MIT), whose compiled WebAssembly is bundled with this package. Redistributed third-party licenses are reproduced in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+Developed with support from the [Prototype Fund](https://www.prototypefund.de/en/projects/mls4rn).
